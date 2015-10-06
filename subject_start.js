@@ -37,10 +37,6 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
             .duration(rs.config.period_length_s).onComplete(function() {
                 rs.next_period(3);
             });
-
-        for (var i = 0; i < rs.subjects.length; i++) {
-
-        }
         
         $scope.actionShow = true;
         $scope.flowShow = true;
