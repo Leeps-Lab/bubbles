@@ -75,20 +75,17 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
         $scope.tick = tick;
 
-        $scope.dev_log("$scope.actions:");
-        $scope.dev_log($scope.actions);
-
         // End of a sub period (in the "continuous" version, every tick is the end of a sub period)
         if (tick % $scope.ticksPerSubPeriod === 0) {
-            var reward = $scope.payoffFunction();
+            var reward = $scope.payoffFunction(Number(rs.user_id)-1);
             $scope.rewards.push(reward);
             rs.add_points(reward * $scope.ticksPerSubPeriod / $scope.clock.getDurationInTicks());
         }
 
     }
 
-    $scope.payoffFunction = function() {
-        return 5;
+    $scope.payoffFunction = function(index) {
+        return $scope.actions[index]*2/5;
     }
 
     $("#actionSpace").bind("plotclick", function (event, pos, item) {
@@ -106,6 +103,10 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
 
 }]);
+
+//
+//  controls main actionspace
+//
 Redwood.directive('actionflot', ['RedwoodSubject', function(rs) {
     return {
         link: function($scope, elem, attr) {
@@ -146,24 +147,120 @@ Redwood.directive('actionflot', ['RedwoodSubject', function(rs) {
                 for (var i = 0; i < rs.subjects.length; i++) {
                     var pt = [];
                     if ($scope.actions[i]) {
-                        pt.push([$scope.actions[i], $scope.actions[i]*2/5])
+                        pt.push([$scope.actions[i], $scope.payoffFunction(i) ])
                     } else {
                         pt.push([0, 0]);
                     }
                     actions.push({
                         data: pt,
-                        points: { show: true },
+                        points: { 
+                            show: true, 
+                            radius: 10, 
+                            lineWidth: 1, 
+                            fill: true,
+                            fillColor: $scope.colors[i]
+                        },
                         color: $scope.colors[i]
                     });
                 }
+                //Vertical line for selection
+                actions.push({
+                    data: [
+                        [$scope.actions[Number(rs.user_id)-1], 0],
+                        [$scope.actions[Number(rs.user_id)-1], 10]
+                    ],
+                    lines: {
+                        lineWidth: 1
+                    },
+                    color: $scope.colors[Number(rs.user_id)-1]
+                });
                 replot();
             }
 
             function replot() {
 
                 if (!loaded) return;
+                var actionopts = {
+                    xaxis: {
+                        ticks: 0,
+                        tickLength: 0,
+                        min: 0,
+                        max: 10
+                    },
+                    yaxis: {
+                        tickLength: 0,
+                        min: 0,
+                        max: $scope.yMax
+                    },
+                    series: {
+                        shadowSize: 0
+                    }
+                };
+                $.plot(elem, actions, actionopts);
+            }
+        }
+    }
+}]);
 
-                var xRange = 10;
+//
+//  controls flow payoff flot graph
+//
+Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
+    return {
+        link: function($scope, elem, attr) {
+
+            var plot = [],
+                flows = [[]],
+                opponentPlot = [],
+                subPeriods = [],
+                loaded = true;
+
+            rs.on_load(function() {
+                init();
+            });
+
+            function init() {
+                if ($scope.ticksPerSubPeriod > 1) {
+                    var subPeriod = 0;
+                    do {
+                        subPeriod += $scope.ticksPerSubPeriod;
+                        subPeriods.push(subPeriod / $scope.clock.getDurationInTicks());
+                    } while (subPeriod < $scope.clock.getDurationInTicks());
+                }
+
+                for(var i = 0; i < rs.subjects.length; i++) {
+                    var filling = false;
+                    if ((i+1) == Number(rs.user_id)) {
+                        filling = true;
+                    }
+                    flows[i] = {
+                        data: [],
+                        lines: {
+                            fill: false,
+                            lineWidth: 2,
+                            fillColor: $scope.colors[i]
+                        },
+                        color: $scope.colors[i]
+                    };
+                }
+                loaded = true;
+                replot();
+            }
+
+            $scope.$watch('tick', function(tick) {
+                for(var i = 0; i < rs.subjects.length; i++) {
+                    var data = [ ($scope.tick - $scope.ticksPerSubPeriod) / $scope.clock.getDurationInTicks(), $scope.payoffFunction(i) ];
+                    $scope.dev_log("payoff for player " + (i+1) + " is " + $scope.payoffFunction(i));
+                    flows[i].data.push(data);
+                }
+                replot();
+            }, true);
+
+            function replot() {
+
+                if (!loaded) return;
+                $scope.dev_log(flows);
+                var xRange = 1;
                 var opts = {
                     xaxis: {
                         ticks: 0,
@@ -178,78 +275,12 @@ Redwood.directive('actionflot', ['RedwoodSubject', function(rs) {
                     },
                     series: {
                         shadowSize: 0
-                    },
-                    points: { 
-                        show: true,
-                        radius: 10,
-                        lineWidth: 1, 
-                        fill: true 
                     }
                 };
                 var dataset = [];
-                
-                $.plot(elem, actions, opts);
-            }
-        }
-    }
-}]);
-Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
-    return {
-        link: function($scope, elem, attr) {
 
-            var plot = [],
-                opponentPlot = [],
-                subPeriods = [],
-                loaded = true;
-
-            rs.on_load(function() {
-                init();
-            });
-
-            function init() {
-                console.log("initializing flow payoff");
-                if ($scope.ticksPerSubPeriod > 1) {
-                    var subPeriod = 0;
-                    do {
-                        subPeriod += $scope.ticksPerSubPeriod;
-                        subPeriods.push(subPeriod / $scope.clock.getDurationInTicks());
-                    } while (subPeriod < $scope.clock.getDurationInTicks());
-                }
-                loaded = true;
-                replot();
-            }
-
-            $scope.$watch('tick', function(tick) {
-                plot.push([($scope.tick - $scope.ticksPerSubPeriod) / $scope.clock.getDurationInTicks(), 5]);
-                opponentPlot.push([($scope.tick - $scope.ticksPerSubPeriod) / $scope.clock.getDurationInTicks(), 8])
-                replot();
-            }, true);
-
-            function replot() {
-                $scope.dev_log("replotting flow payoffs");
-
-                if (!loaded) return;
-
-                var xRange = 1;
-                var opts = {
-                    xaxis: {
-                        ticks: 0,
-                        tickLength: 0,
-                        min: 0,
-                        max: xRange
-                    },
-                    yaxis: {
-                        tickLength: 0,
-                        min: 0,
-                        max: $scope.yMax + ($scope.yMax * 0.2)
-                    },
-                    series: {
-                        shadowSize: 0
-                    }
-                };
-                var dataset = [];
                 for (var p = 0; p < subPeriods.length; p++) { //mark each sub-period with a vertical red line
-                    dataset.push({
+                    flows.push({
                         data: [
                             [subPeriods[p], opts.yaxis.min],
                             [subPeriods[p], opts.yaxis.max]
@@ -260,22 +291,6 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                         color: "red"
                     });
                 }
-                dataset.push({ //plot your rewards as a grey integral
-                    data: plot,
-                    lines: {
-                        fill: true,
-                        lineWidth: 0,
-                        fillColor: "#468847"
-                    },
-                    color: "grey"
-                });
-                dataset.push({ //plot your opponent's rewards as a black line
-                    data: opponentPlot,
-                    lines: {
-                        lineWidth: 2
-                    },
-                    color: "black"
-                });
 
                 dataset.push({ //display the current time indicator as a vertical grey line
                     data: [
@@ -284,6 +299,11 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                     ],
                     color: "grey"
                 });
+
+                //now push on each players flow data from init/tick
+                for (var i = 0; i < rs.subjects.length; i++) {
+                    dataset.push(flows[i]);
+                }
 
                 $.plot(elem, dataset, opts);
             }
