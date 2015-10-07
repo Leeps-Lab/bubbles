@@ -3,13 +3,18 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
     $scope.actionShow = false;
     $scope.flowShow = false;
-
+    $scope.actions = [];
+    $scope.colors = [ "green", "red", "blue", "black", "yellow" ];
     rs.on_load(function() {
 
         console.log("loading");
         $scope.flowData = [];
         $scope.actionData = [];
-
+        $scope.clock  = SynchronizedStopWatch.instance()
+        .frequency(1).onTick(processTick)
+        .duration(rs.config.period_length_s).onComplete(function() {
+            rs.next_period(3);
+        });
 
 
         $scope.yMax = 10;
@@ -17,26 +22,24 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         $scope.ticksPerSubPeriod = Math.max(Math.floor(rs.config.period_length_s * CLOCK_FREQUENCY / numSubPeriods), 1);
 
         $("#slider").slider({
-            value: 5,
+            value: 0,
             min: 0,
             max: 10,
-            step: 1,
+            step: 0.1,
             slide: function(event, ui) {
+                $scope.dev_log("sliding");
+                $scope.text = "x: " + ui.value;
+                $scope.myTempAction = ui.value;
+            },
+            change: function( event, ui ) {
+                $scope.text = "x: " + ui.value;
                 var msg = { "action": ui.value };
+
                 rs.trigger("updateAction", msg);
                 rs.send("updateAction", msg);
                 $scope.dev_log(ui.value);
-            },
-            change: function( event, ui ) {
-                $scope.dev_log(ui.value);
             }
         });
-
-        $scope.clock = SynchronizedStopWatch.instance()
-            .frequency(1).onTick(processTick)
-            .duration(rs.config.period_length_s).onComplete(function() {
-                rs.next_period(3);
-            });
         
         $scope.actionShow = true;
         $scope.flowShow = true;
@@ -54,11 +57,15 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
 
     rs.recv("updateAction", function(uid, msg) {
+        $scope.actions[uid-1] = msg.action;
+
         $scope.dev_log("receiving update action from opponent");
         $scope.opponentAction = msg.action;
     });
 
     rs.on("updateAction", function(msg) {
+        $scope.actions[Number(rs.user_id)-1] = msg.action;
+
         $scope.dev_log("receiving update action myself");
         $scope.myAction = msg.action;
     });
@@ -68,6 +75,9 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
         $scope.tick = tick;
 
+        $scope.dev_log("$scope.actions:");
+        $scope.dev_log($scope.actions);
+
         // End of a sub period (in the "continuous" version, every tick is the end of a sub period)
         if (tick % $scope.ticksPerSubPeriod === 0) {
             var reward = $scope.payoffFunction();
@@ -75,7 +85,6 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
             rs.add_points(reward * $scope.ticksPerSubPeriod / $scope.clock.getDurationInTicks());
         }
 
-        $scope.dev_log("ticking");
     }
 
     $scope.payoffFunction = function() {
@@ -83,13 +92,14 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     }
 
     $("#actionSpace").bind("plotclick", function (event, pos, item) {
+        $scope.text = event;
         $scope.dev_log(event);
     });
     $("#actionSpace").bind("plothover", function(event, pos, item) {
         $scope.dev_log(event);
     });
-    $scope.logging = true;
 
+    $scope.logging = true;
     $scope.dev_log = function(msg) {
         if ($scope.logging) console.debug(msg);
     }
@@ -101,38 +111,59 @@ Redwood.directive('actionflot', ['RedwoodSubject', function(rs) {
         link: function($scope, elem, attr) {
 
             var plot = [],
-                myAction = [2, 1],
-                opponentAction = [3, 4],
-                opponentPlot = [],
+                actions = [],
                 subPeriods = [],
-                loaded = true;
+                loaded = false;
 
-            init();
+            rs.on_load(function() {
+                init();
+            });
 
             function init() {
-                console.log("initializing actionspace");
+                for (var i = 0; i < rs.subjects.length; i++) {
+                    actions.push({
+                        data: [ [0, 0] ],
+                        points: { show: true },
+                        color: $scope.colors[i]
+                    });
+                }
                 loaded = true;
                 replot();
             }
+            $scope.$watch('myTempAction', function() {
+                $scope.dev_log("watching myTempAction");
+                $scope.actions[Number(rs.user_id)-1] = $scope.myTempAction;
 
-            $scope.$watch('myAction', function(tick) {
-                $scope.dev_log("my action is: " +  $scope.myAction);
-                myAction = [ $scope.myAction, 5 ];
-                replot();
+                //will trigger rebuild below
             }, true);
 
-            $scope.$watch('opponentAction', function(tick) {
-                $scope.dev_log("opp action is: " + $scope.opponentAction);
-                opponentAction = [ $scope.opponentAction, 6 ];
-                replot();
+            $scope.$watch('actions', function() {
+                rebuild();
             }, true);
+
+            function rebuild() {
+                actions = [];
+                for (var i = 0; i < rs.subjects.length; i++) {
+                    var pt = [];
+                    if ($scope.actions[i]) {
+                        pt.push([$scope.actions[i], $scope.actions[i]*2/5])
+                    } else {
+                        pt.push([0, 0]);
+                    }
+                    actions.push({
+                        data: pt,
+                        points: { show: true },
+                        color: $scope.colors[i]
+                    });
+                }
+                replot();
+            }
 
             function replot() {
-                $scope.dev_log("replotting actionspace");
 
                 if (!loaded) return;
 
-                var xRange = 1;
+                var xRange = 10;
                 var opts = {
                     xaxis: {
                         ticks: 0,
@@ -149,44 +180,15 @@ Redwood.directive('actionflot', ['RedwoodSubject', function(rs) {
                         shadowSize: 0
                     },
                     points: { 
-                        show: true, 
-                        lineWidth: 4, 
+                        show: true,
+                        radius: 10,
+                        lineWidth: 1, 
                         fill: true 
                     }
                 };
                 var dataset = [];
-                for (var p = 0; p < subPeriods.length; p++) { //mark each sub-period with a vertical red line
-                    dataset.push({
-                        data: [
-                            [subPeriods[p], opts.yaxis.min],
-                            [subPeriods[p], opts.yaxis.max]
-                        ],
-                        lines: {
-                            lineWidth: 1
-                        },
-                        color: "red"
-                    });
-                }
-                dataset.push({
-                    data: opponentAction,
-                    points: { show: true, radius: 5, fill: true },
-                    color: "green"
-                });
-                dataset.push({
-                    data: myAction,
-                    points: { show: true, radius: 5, fill: true },
-                    color: "red"
-                });
-
-                dataset.push({ //display the current time indicator as a vertical grey line
-                    data: [
-                        [$scope.tick / $scope.clock.getDurationInTicks(), opts.yaxis.min],
-                        [$scope.tick / $scope.clock.getDurationInTicks(), opts.yaxis.max]
-                    ],
-                    color: "grey"
-                });
-
-                $.plot(elem, dataset, opts);
+                
+                $.plot(elem, actions, opts);
             }
         }
     }
@@ -200,7 +202,9 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                 subPeriods = [],
                 loaded = true;
 
-            init();
+            rs.on_load(function() {
+                init();
+            });
 
             function init() {
                 console.log("initializing flow payoff");
