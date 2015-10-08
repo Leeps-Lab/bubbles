@@ -4,7 +4,8 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     $scope.actionShow = false;
     $scope.flowShow = false;
     $scope.actions = [];
-    $scope.colors = [ "green", "red", "blue", "black", "yellow" ];
+    $scope.colors = [ "green", "red", "blue", "black", "yellow", "orange", "purple", "brown" ];
+
     rs.on_load(function() {
 
         console.log("loading");
@@ -27,9 +28,12 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
             max: 10,
             step: 0.1,
             slide: function(event, ui) {
-                $scope.dev_log("sliding");
+
+                //$scope.dev_log("sliding");
                 $scope.text = "x: " + ui.value;
-                $scope.myTempAction = ui.value;
+
+                $scope.actions[Number(rs.user_id)-1] = ui.value;
+
             },
             change: function( event, ui ) {
                 $scope.text = "x: " + ui.value;
@@ -40,6 +44,20 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
                 $scope.dev_log(ui.value);
             }
         });
+
+
+        $scope.throttle = function(callback, limit) {
+            var wait = false;                  // Initially, we're not waiting
+            return function () {               // We return a throttled function
+                if (!wait) {                   // If we're not waiting
+                    callback.call();           // Execute users function
+                    wait = true;               // Prevent future invocations
+                    setTimeout(function () {   // After a period of time
+                        wait = false;          // And allow future invocations
+                    }, limit);
+                }
+            }
+        }
         
         $scope.actionShow = true;
         $scope.flowShow = true;
@@ -85,16 +103,12 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     }
 
     $scope.payoffFunction = function(index) {
-        return $scope.actions[index]*2/5;
+        if (!isNaN($scope.actions[index]))
+            return $scope.actions[index]*2/5;
+        else
+            return 0;
     }
 
-    $("#actionSpace").bind("plotclick", function (event, pos, item) {
-        $scope.text = event;
-        $scope.dev_log(event);
-    });
-    $("#actionSpace").bind("plothover", function(event, pos, item) {
-        $scope.dev_log(event);
-    });
 
     $scope.logging = true;
     $scope.dev_log = function(msg) {
@@ -111,8 +125,7 @@ Redwood.directive('actionflot', ['RedwoodSubject', function(rs) {
     return {
         link: function($scope, elem, attr) {
 
-            var plot = [],
-                actions = [],
+            var actions = [],
                 subPeriods = [],
                 loaded = false;
 
@@ -120,6 +133,8 @@ Redwood.directive('actionflot', ['RedwoodSubject', function(rs) {
                 init();
             });
 
+
+            //initialize our actions data array starting everyone at (0,0)
             function init() {
                 for (var i = 0; i < rs.subjects.length; i++) {
                     actions.push({
@@ -129,14 +144,8 @@ Redwood.directive('actionflot', ['RedwoodSubject', function(rs) {
                     });
                 }
                 loaded = true;
-                replot();
+                rebuild();
             }
-            $scope.$watch('myTempAction', function() {
-                $scope.dev_log("watching myTempAction");
-                $scope.actions[Number(rs.user_id)-1] = $scope.myTempAction;
-
-                //will trigger rebuild below
-            }, true);
 
             $scope.$watch('actions', function() {
                 rebuild();
@@ -146,7 +155,7 @@ Redwood.directive('actionflot', ['RedwoodSubject', function(rs) {
                 actions = [];
                 for (var i = 0; i < rs.subjects.length; i++) {
                     var pt = [];
-                    if ($scope.actions[i]) {
+                    if (!isNaN($scope.actions[i])) {
                         pt.push([$scope.actions[i], $scope.payoffFunction(i) ])
                     } else {
                         pt.push([0, 0]);
@@ -163,17 +172,29 @@ Redwood.directive('actionflot', ['RedwoodSubject', function(rs) {
                         color: $scope.colors[i]
                     });
                 }
-                //Vertical line for selection
-                actions.push({
-                    data: [
+                var linedata = []
+
+                //Vertical line for selection or at 0,0 for start
+                if (!isNaN($scope.actions[Number(rs.user_id)-1])) {
+                    linedata = [
                         [$scope.actions[Number(rs.user_id)-1], 0],
                         [$scope.actions[Number(rs.user_id)-1], 10]
-                    ],
+                    ];
+                } else {
+                    linedata = [
+                        [0, 0],
+                        [0, 10]
+                    ]
+                }
+
+                actions.push({
+                    data: linedata,
                     lines: {
                         lineWidth: 1
                     },
                     color: $scope.colors[Number(rs.user_id)-1]
                 });
+                $scope.dev_log(actions);
                 replot();
             }
 
@@ -185,7 +206,8 @@ Redwood.directive('actionflot', ['RedwoodSubject', function(rs) {
                         ticks: 0,
                         tickLength: 0,
                         min: 0,
-                        max: 10
+                        max: 10,
+                        ticks: 10
                     },
                     yaxis: {
                         tickLength: 0,
@@ -213,7 +235,7 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                 flows = [[]],
                 opponentPlot = [],
                 subPeriods = [],
-                loaded = true;
+                loaded = false;
 
             rs.on_load(function() {
                 init();
@@ -244,7 +266,7 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                     };
                 }
                 loaded = true;
-                replot();
+                $scope.replotFlow();
             }
 
             $scope.$watch('tick', function(tick) {
@@ -253,10 +275,10 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                     $scope.dev_log("payoff for player " + (i+1) + " is " + $scope.payoffFunction(i));
                     flows[i].data.push(data);
                 }
-                replot();
+                $scope.replotFlow();
             }, true);
 
-            function replot() {
+            $scope.replotFlow = function() {
 
                 if (!loaded) return;
                 $scope.dev_log(flows);
