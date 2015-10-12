@@ -1,6 +1,11 @@
 Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'SynchronizedStopWatch', function($rootScope, $scope, rs, SynchronizedStopWatch) {
+    
+    //Controls tick frequency for refreshing of flow chart
     var CLOCK_FREQUENCY = 10;
-    var SLIDER_REFRESH_TIME = 35;
+
+    //Controls how often the slider is allowed
+    // to update the user's value. In ms.
+    var SLIDER_REFRESH_TIME = 45;
 
     $scope.actionShow = false;
     $scope.flowShow = false;
@@ -35,19 +40,27 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
                 $scope.dev_log("it has been " + diff + " since last slide");
 
+                //If this wasn't here, everytime a user changed selection by 0.1 the code
+                //would fire redwood messages and overload the router. This way, we check to see
+                //if it's been at least SLIDER_REFRESH_TIME since the last time the slide action is
+                //fired. Set via parameter in ms.
                 if (diff > SLIDER_REFRESH_TIME) {
                     $scope.text = "x: " + ui.value;
                     var msg = { "action": ui.value };
 
                     rs.trigger("updateAction", msg);
                     rs.send("updateAction", msg);
-                } else {
-                    //$scope.dev_log("sliding");
+                    
+                    //we've slid
+                    currSlideTime = new Date().getTime();
+
+                } else { //otherwise, let's set some temp flags incase we tick in between
+                    
                     $scope.text = "x: " + ui.value;
 
                     $scope.actions[Number(rs.user_id)-1] = ui.value;
                 }
-                currSlideTime = new Date().getTime();
+
             },
             change: function( event, ui ) {
                 $scope.text = "x: " + ui.value;
