@@ -13,7 +13,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     $scope.colors = [ "green", "red", "blue", "black", "yellow", "orange", "purple", "brown" ];
 
     rs.on_load(function() {
-
+        $scope.text = "x: 0";
         $scope.clock  = SynchronizedStopWatch.instance()
             .frequency(CLOCK_FREQUENCY).onTick(processTick)
             .duration(rs.config.period_length_s).onComplete(function() {
@@ -313,7 +313,8 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                         ticks: 0,
                         tickLength: 0,
                         min: 0,
-                        max: xRange
+                        max: xRange,
+                        ticks: 10
                     },
                     yaxis: {
                         tickLength: 0,
