@@ -17,7 +17,8 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         $scope.clock  = SynchronizedStopWatch.instance()
             .frequency(CLOCK_FREQUENCY).onTick(processTick)
             .duration(rs.config.period_length_s).onComplete(function() {
-                rs.next_period(3);
+                rs.trigger("move_on");
+                
         });
 
 
@@ -71,20 +72,6 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
                 $scope.dev_log(ui.value);
             }
         });
-
-
-        $scope.throttle = function(callback, limit) {
-            var wait = false;                  // Initially, we're not waiting
-            return function () {               // We return a throttled function
-                if (!wait) {                   // If we're not waiting
-                    callback.call();           // Execute users function
-                    wait = true;               // Prevent future invocations
-                    setTimeout(function () {   // After a period of time
-                        wait = false;          // And allow future invocations
-                    }, limit);
-                }
-            }
-        }
         
         $scope.actionShow = true;
         $scope.flowShow = true;
@@ -92,6 +79,8 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         $scope.rewards = [];
         $scope.opponentRewards = [];
         
+        $scope.bgColor = "white";
+
         $scope.loaded = true;
         
 
@@ -103,6 +92,11 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     });
 
 
+    rs.on("move_on", function(msg) {
+        $scope.bgColor = "#ccc";
+        $("#slider").slider("disable");
+        rs.next_period(3);
+    });
 
     rs.recv("updateAction", function(uid, msg) {
         $scope.actions[uid-1] = msg.action;
@@ -178,6 +172,10 @@ Redwood.directive('actionflot', ['RedwoodSubject', function(rs) {
                 rebuild();
             }, true);
 
+            $scope.$watch('bgColor', function() {
+                rebuild();
+            }, true);
+
             function rebuild() {
                 actions = [];
                 for (var i = 0; i < rs.subjects.length; i++) {
@@ -235,6 +233,9 @@ Redwood.directive('actionflot', ['RedwoodSubject', function(rs) {
                     },
                     series: {
                         shadowSize: 0
+                    },
+                    grid: {
+                        backgroundColor: $scope.bgColor
                     }
                 };
                 $.plot(elem, actions, actionopts);
@@ -297,6 +298,11 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                 $scope.replotFlow();
             }, true);
 
+            //watch for end of period to change color of bg
+            $scope.$watch('bgColor', function() {
+                $scope.replotFlow();
+            }, true);
+
             $scope.replotFlow = function() {
 
                 if (!loaded) return;
@@ -316,6 +322,9 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                     },
                     series: {
                         shadowSize: 0
+                    },
+                    grid: {
+                        backgroundColor: $scope.bgColor
                     }
                 };
                 var dataset = [];
