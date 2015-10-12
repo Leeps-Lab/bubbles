@@ -1,5 +1,6 @@
 Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'SynchronizedStopWatch', function($rootScope, $scope, rs, SynchronizedStopWatch) {
-    var CLOCK_FREQUENCY = 30;
+    var CLOCK_FREQUENCY = 10;
+    var SLIDER_REFRESH_TIME = 35;
 
     $scope.actionShow = false;
     $scope.flowShow = false;
@@ -8,19 +9,20 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
     rs.on_load(function() {
 
-        console.log("loading");
-        $scope.flowData = [];
-        $scope.actionData = [];
         $scope.clock  = SynchronizedStopWatch.instance()
-        .frequency(1).onTick(processTick)
-        .duration(rs.config.period_length_s).onComplete(function() {
-            rs.next_period(3);
+            .frequency(CLOCK_FREQUENCY).onTick(processTick)
+            .duration(rs.config.period_length_s).onComplete(function() {
+                rs.next_period(3);
         });
 
 
         $scope.yMax = 10;
+
         var numSubPeriods = rs.config.num_sub_periods || (rs.config.period_length_s * CLOCK_FREQUENCY);
+        
         $scope.ticksPerSubPeriod = Math.max(Math.floor(rs.config.period_length_s * CLOCK_FREQUENCY / numSubPeriods), 1);
+
+        var currSlideTime = new Date().getTime();
 
         $("#slider").slider({
             value: 0,
@@ -28,12 +30,24 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
             max: 10,
             step: 0.1,
             slide: function(event, ui) {
+                var nowSlide = new Date().getTime();
+                var diff = nowSlide - currSlideTime;
 
-                //$scope.dev_log("sliding");
-                $scope.text = "x: " + ui.value;
+                $scope.dev_log("it has been " + diff + " since last slide");
 
-                $scope.actions[Number(rs.user_id)-1] = ui.value;
+                if (diff > SLIDER_REFRESH_TIME) {
+                    $scope.text = "x: " + ui.value;
+                    var msg = { "action": ui.value };
 
+                    rs.trigger("updateAction", msg);
+                    rs.send("updateAction", msg);
+                } else {
+                    //$scope.dev_log("sliding");
+                    $scope.text = "x: " + ui.value;
+
+                    $scope.actions[Number(rs.user_id)-1] = ui.value;
+                }
+                currSlideTime = new Date().getTime();
             },
             change: function( event, ui ) {
                 $scope.text = "x: " + ui.value;
@@ -67,9 +81,12 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         
         $scope.loaded = true;
         
+
+        for (var i = 0; i < rs.subjects.length; i++) {
+            $scope.actions[i] = 0;
+        }
+
         $scope.clock.start();
-
-
     });
 
 
@@ -103,14 +120,11 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     }
 
     $scope.payoffFunction = function(index) {
-        if (!isNaN($scope.actions[index]))
-            return $scope.actions[index]*2/5;
-        else
-            return 0;
+        return $scope.actions[index]*2/5;
     }
 
 
-    $scope.logging = true;
+    $scope.logging = false;
     $scope.dev_log = function(msg) {
         if ($scope.logging) console.debug(msg);
     }
@@ -155,11 +169,9 @@ Redwood.directive('actionflot', ['RedwoodSubject', function(rs) {
                 actions = [];
                 for (var i = 0; i < rs.subjects.length; i++) {
                     var pt = [];
-                    if (!isNaN($scope.actions[i])) {
-                        pt.push([$scope.actions[i], $scope.payoffFunction(i) ])
-                    } else {
-                        pt.push([0, 0]);
-                    }
+                    //push the x coordinate as their action and the y coordinate as their payoff
+                    pt.push([$scope.actions[i], $scope.payoffFunction(i) ])
+                    
                     actions.push({
                         data: pt,
                         points: { 
@@ -175,17 +187,11 @@ Redwood.directive('actionflot', ['RedwoodSubject', function(rs) {
                 var linedata = []
 
                 //Vertical line for selection or at 0,0 for start
-                if (!isNaN($scope.actions[Number(rs.user_id)-1])) {
-                    linedata = [
-                        [$scope.actions[Number(rs.user_id)-1], 0],
-                        [$scope.actions[Number(rs.user_id)-1], 10]
-                    ];
-                } else {
-                    linedata = [
-                        [0, 0],
-                        [0, 10]
-                    ]
-                }
+                linedata = [
+                    [$scope.actions[Number(rs.user_id)-1], 0],
+                    [$scope.actions[Number(rs.user_id)-1], 10]
+                ];
+                
 
                 actions.push({
                     data: linedata,
