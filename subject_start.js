@@ -27,6 +27,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
         var numSubPeriods = rs.config.num_sub_periods || (rs.config.period_length_s * CLOCK_FREQUENCY);
         $scope.throttleStep = rs.config.step || 0;
+        $scope.snapDistance = rs.config.snap || 0.1;
         
         $scope.ticksPerSubPeriod = Math.max(Math.floor(rs.config.period_length_s * CLOCK_FREQUENCY / numSubPeriods), 1);
 
@@ -135,8 +136,12 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         return $scope.actions[index]*2/5;
     }
 
+    $scope.payoffTargetFunction = function(index) {
+        return $scope.targets[index]*2/5;
+    }
 
-    $scope.logging = true;
+
+    $scope.logging = false;
     $scope.dev_log = function(msg) {
         if ($scope.logging) console.debug(msg);
     }
@@ -192,20 +197,35 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
 
 
             $scope.$watch('tick', function(tick) {
-                /* movement throttling */
-                if ($scope.actions[i] != $scope.targets[i] && $scope.throttleStep != 0) {
-                    var target = $scope.targets[i],
-                        action = $scope.actions[i];
+                for (var i = 0; i < rs.subjects.length; i++) {
+
+                    var targetDiff = Math.abs($scope.actions[i] - $scope.targets[i]);
+
+                    /* movement throttling */
+                    if (targetDiff > $scope.snapDistance && $scope.throttleStep != 0) {
+                        $scope.dev_log("not on target");
+
+                        var target = $scope.targets[i],
+                            action = $scope.actions[i],
+                            step   = 0;
+
+                        var diff = Math.abs(target - action);
+
+                        //moving forwards or backwards
+                        if (target > action)    diff = diff;
+                        else                    diff = -diff;
                         
-                    if (target < action)    step = -$scope.throttleStep;
-                    else                    step = $scope.throttleStep;
+                        var change = $scope.throttleStep * diff;
 
-                    $scope.actions[i] += step;
+                        $scope.actions[i] = $scope.actions[i] + change;
 
-                } else { 
-                    //otherwise no throttling and an action should instantaneously be their target
-                    $scope.actions[i] = $scope.targets[i];
+                    } else { 
+                        $scope.dev_log("on target");
+                        //otherwise no throttling and an action should instantaneously be their target
+                        $scope.actions[i] = $scope.targets[i];
+                    }
                 }
+
                 rebuild();
             }, true);
 
@@ -214,6 +234,27 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                 actions = [];
                 for (var i = 0; i < rs.subjects.length; i++) {
                     var pt = [];
+
+                    //If we're not on target, also plot a grey target dot
+                    if ($scope.actions[i] != $scope.targets[i] && (i+1) == rs.user_id) {
+                        
+
+                        //push the x coordinate as their target and the y coordinate as their target payoff
+                        pt.push([$scope.targets[i], $scope.payoffTargetFunction(i) ])
+                        
+                        actions.push({
+                            data: pt,
+                            points: { 
+                                show: true, 
+                                radius: 10, 
+                                lineWidth: 1, 
+                                fill: true,
+                                fillColor: "grey"
+                            },
+                            color: "grey"
+                        });
+                    }
+                    pt = [];
 
                     //push the x coordinate as their action and the y coordinate as their payoff
                     pt.push([$scope.actions[i], $scope.payoffFunction(i) ])
@@ -229,6 +270,7 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                         },
                         color: $scope.colors[i]
                     });
+
                 }
                 var linedata = []
 
