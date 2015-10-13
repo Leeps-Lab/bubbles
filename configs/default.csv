@@ -1,6 +1,6 @@
-period,ymax,ymin,period_length_s,num_sub_periods
-1,10,0,30,0
-2,10,0,30,0
-3,10,0,30,0
-4,10,0,30,0
-5,10,0,30,0
+period,ymax,ymin,period_length_s,num_sub_periods,action_clickable, step
+1,10,0,30,0,1,0.3
+2,10,0,30,0,1,0.3
+3,10,0,30,0,1,0.3
+4,10,0,30,0,1,0.3
+5,10,0,30,0,1,0.3
