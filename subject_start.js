@@ -120,7 +120,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
 
     var processTick = function(tick) {
-
+        //causes angular $watch trigger to redraw plots
         $scope.tick = tick;
 
         // End of a sub period (in the "continuous" version, every tick is the end of a sub period)
@@ -133,11 +133,49 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     }
 
     $scope.payoffFunction = function(index) {
+        //return $scope.bjPricing($scope.actions);
         return $scope.actions[index]*2/5;
     }
 
     $scope.payoffTargetFunction = function(index) {
+        $scope.bjPricing($scope.targets);
+        //return $scope.bjPricing($scope.targets);
         return $scope.targets[index]*2/5;
+
+    }
+
+
+    $scope.state = [];
+
+    // takes an array of player locations either target or action depending on what we're plotting
+    //
+    // Array is formatted like so:
+    //
+    // [1.3, 1.2, 0.8, ... , n]
+    // where the first element correspons to player 1, 
+    // second corresponds to player 2, etc. These indecies start at 0 but
+    // subject numbers start at 1, so we add one to index counter to get id.
+
+    $scope.bjPricing = function(array) {
+
+        //each time we run our payoff function, let's just rebuild state
+        $scope.state = [];
+
+        for (var i = 0; i < array.length; i++) {
+            var obj = {
+                "id": i+1, //rs user id since array stores from 0->n-1 where n is the number of players
+                "action": $scope.actions[i],
+                "target": $scope.targets[i],
+                "targetPayoff": $scope.payoffTargetFunction(i),
+                "actionPayoff": $scope.payoffFunction(i)
+            };
+            state.push(obj);
+        }
+
+        //sort descending
+        state.sort(function(a, b) {
+            return b.action - a.action;   
+        });
     }
 
 
