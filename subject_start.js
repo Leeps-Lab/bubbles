@@ -138,7 +138,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     }
 
     $scope.payoffTargetFunction = function(index) {
-        $scope.bjPricing($scope.targets);
+        //$scope.bjPricing($scope.targets);
         //return $scope.bjPricing($scope.targets);
         return $scope.targets[index]*2/5;
 
@@ -179,7 +179,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     }
 
 
-    $scope.logging = false;
+    $scope.logging = true;
     $scope.dev_log = function(msg) {
         if ($scope.logging) console.debug(msg);
     }
@@ -234,12 +234,15 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
             }, true);
 
 
+            //this allows us to advance a persons action by a given step and throttling
+            // amount. This action allows a person to only move by a certain step per tick
             $scope.$watch('tick', function(tick) {
                 for (var i = 0; i < rs.subjects.length; i++) {
 
                     var targetDiff = Math.abs($scope.actions[i] - $scope.targets[i]);
 
-                    /* movement throttling */
+
+                    /* If our difference is greather than the snap distance, and a throttle is set, let's throttle */
                     if (targetDiff > $scope.snapDistance && $scope.throttleStep != 0) {
                         $scope.dev_log("not on target");
 
@@ -247,18 +250,26 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                             action = $scope.actions[i],
                             step   = 0;
 
-                        var diff = Math.abs(target - action);
+                        //deciding whether our step is going to be positive or negative
+                        if (target > action)    step = $scope.throttleStep;
+                        else                    step = -$scope.throttleStep;
 
-                        //moving forwards or backwards
-                        if (target > action)    diff = diff;
-                        else                    diff = -diff;
+                        //positive step would set us above target 
+                        var stepPosBool = (step > 0) && ((action + $scope.throttleStep) > target);
+                        //negative step would set us below target
+                        var stepNegBool = (step < 0) && ((action - $scope.throttleStep) < target);
                         
-                        var change = $scope.throttleStep * diff;
 
-                        $scope.actions[i] = $scope.actions[i] + change;
+                        //if a step would place us above or below, snap to target
+                        if (stepPosBool || stepNegBool) {
+                            $scope.actions[i] = $scope.targets[i];
+                        
+                        
+                        } else { //else, we can move by a step
+                            $scope.actions[i] = $scope.actions[i] + step;
+                        }
 
                     } else { 
-                        $scope.dev_log("on target");
                         //otherwise no throttling and an action should instantaneously be their target
                         $scope.actions[i] = $scope.targets[i];
                     }
