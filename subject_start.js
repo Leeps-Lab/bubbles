@@ -23,7 +23,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         });
 
 
-        $scope.yMax = 1000;
+        $scope.yMax = rs.config.ymax;
 
         var numSubPeriods = rs.config.num_sub_periods || (rs.config.period_length_s * CLOCK_FREQUENCY);
         $scope.throttleStep = rs.config.step || 0;
