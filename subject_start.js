@@ -15,15 +15,15 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
     rs.on_load(function() {
         $scope.text = "x: 0";
+
         $scope.clock  = SynchronizedStopWatch.instance()
             .frequency(CLOCK_FREQUENCY).onTick(processTick)
             .duration(rs.config.period_length_s).onComplete(function() {
                 rs.trigger("move_on");
-                
         });
 
 
-        $scope.yMax = 10;
+        $scope.yMax = 1000;
 
         var numSubPeriods = rs.config.num_sub_periods || (rs.config.period_length_s * CLOCK_FREQUENCY);
         $scope.throttleStep = rs.config.step || 0;
@@ -133,14 +133,21 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     }
 
     $scope.payoffFunction = function(index) {
+        $scope.bjPricing($scope.actions);
+        for (var i = 0; i < rs.subjects.length; i++) {
+            if ($scope.state[i].id == index) return $scope.state[i].payoff
+        }
         //return $scope.bjPricing($scope.actions);
-        return $scope.actions[index]*2/5;
+        //return $scope.actions[index]*2/5;
     }
 
     $scope.payoffTargetFunction = function(index) {
-        //$scope.bjPricing($scope.targets);
+        $scope.bjPricing($scope.targets);
+        for (var i = 0; i < rs.subjects.length; i++) {
+            if ($scope.state[i].id == index) return $scope.state[i].payoff
+        }
         //return $scope.bjPricing($scope.targets);
-        return $scope.targets[index]*2/5;
+        //return $scope.targets[index]*2/5;
 
     }
 
@@ -163,19 +170,71 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
         for (var i = 0; i < array.length; i++) {
             var obj = {
-                "id": i+1, //rs user id since array stores from 0->n-1 where n is the number of players
-                "action": $scope.actions[i],
-                "target": $scope.targets[i],
-                "targetPayoff": $scope.payoffTargetFunction(i),
-                "actionPayoff": $scope.payoffFunction(i)
+                "id": i, //rs user id since array stores from 0->n-1 where n is the number of players
+                "action": array[i],
+                "rank": 0,
+                "payoff": 0
             };
-            state.push(obj);
+            $scope.state.push(obj);
         }
 
         //sort descending
-        state.sort(function(a, b) {
+        $scope.state.sort(function(a, b) {
             return b.action - a.action;   
         });
+
+        //in the event of a tie, we need a counter to keep track so we advance 
+        // rank in the case of a tie.
+        var extraRank = 0;
+        for (var i = 0; i < $scope.state.length; i++) {
+            var thiselem   = $scope.state[i],
+                nextelem   = $scope.state[i+1],
+                rank       = i+1;
+
+            //if we're on the last element, and the rank hasn't been set yet
+            if (nextelem == null) {
+                if (thiselem.rank == 0) {
+                    thiselem.rank = rank;
+                }
+                continue;
+            }
+
+            if (thiselem.action == nextelem.action) {
+                //in the event of a tie, they recieve rank equal to 
+                // the average of the ranks they would recieve
+                thiselem.rank = nextelem.rank = ((rank) + (rank+1)) / 2;
+                //the next iteration needs to know we've had a tie so the i rank counter
+                // is no longer exactly correct
+                extraRank++;
+            } else if (thiselem.rank == 0) {
+                thiselem.rank = rank;
+            } 
+            // else thiselem rank has already been set by the earlier loop iteration
+            // where there was a tie, and in that case both ranks have been set already
+            
+        }
+
+        for (var i = 0; i < $scope.state.length; i++) {
+            var elem = $scope.state[i], payoff = 0;
+
+            if (rs.config.payoff == "stable") {
+                var numerator = ((elem.rank-1) * (elem.rank-2));
+                var denominator = ((rs.subjects.length-1) * (rs.subjects.length-2));
+                var scalar = 0;
+                if (denominator == 0) {
+                    scalar = 0;
+                } else {
+                    scalar = Math.max(0, numerator / denominator);
+                }
+                payoff = 75 * elem.action * (1 + scalar);
+            } else if (rs.config.payoff == "unstable") {
+                payoff = 66.6 * elem.action * (1 + ((elem.rank-1))/(rs.subjects.length-1));
+            }
+
+            elem.payoff = payoff;
+        }
+
+        $scope.dev_log($scope.state);
     }
 
 
@@ -326,7 +385,7 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                 //Vertical line for selection or at 0,0 for start
                 linedata = [
                     [$scope.actions[Number(rs.user_id)-1], 0],
-                    [$scope.actions[Number(rs.user_id)-1], 10]
+                    [$scope.actions[Number(rs.user_id)-1], $scope.yMax]
                 ];
                 
 
