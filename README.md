@@ -22,4 +22,4 @@ A modular "framework" for including a bubbles interface
 
 >hidePayoffs [Boolean] --sets whether or not the opponents' payoffs are visible
 
->payoffProjection [Boolean] --determines whether or not the player sees a line on their actionspace representing all possible locations with payoffs
+>payoffProjection [Boolean] --determines whether or not the player sees a line on their actionspace representing all possible payoffs for different strategies
