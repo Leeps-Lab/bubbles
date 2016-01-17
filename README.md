@@ -19,3 +19,7 @@ A modular "framework" for including a bubbles interface
 >snap	[Int]	--sets a distance where a player will "snap" to their target location. If 0, this setting is disabled. 
 
 >payoff	[String] --Either stable or unstable, which decides which BJ Pricing payoff function to implement.
+
+>hidePayoffs [Boolean] --sets whether or not the opponents' payoffs are visible
+
+>payoffProjection [Boolean] --determines whether or not the player sees a line on their actionspace representing all possible locations with payoffs
