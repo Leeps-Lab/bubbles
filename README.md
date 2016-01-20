@@ -3,7 +3,7 @@ A modular "framework" for including a bubbles interface
 
 ##config fields
 >period --must be set and incrementing from 1-> total number of periods
-
+>groups -- "[[1,2,3,4]]" an array of groups. Each set represents a distinct group
 >ymax	[Int]	--sets the ymax setting for height of both plots
 
 >ymin	[Int]	--sets the ymin setting for minimum y value of plots
