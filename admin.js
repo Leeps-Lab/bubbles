@@ -3,7 +3,7 @@
       var new_period = 2;
       var group_size = 2;
 
-      $('#current_group').html('<small>Current Group Size: ' + group_size + '</small>');
+      //$('#current_group').html('<small>Current Group Size: ' + group_size + '</small>');
 
       var Display = { //Display controller
 
@@ -70,17 +70,17 @@
               });
 
               ra.on_router_connected(function(connected) { //Display router connection status
-        				var status = $("#router-status");
-        				if (connected) {
-        					status.text("Router Connected");
-        					status.removeClass("alert-danger");
-        					status.addClass("alert-success");
-        				} else {
-        					status.text("Router Disconnected");
-        					status.removeClass("alert-success");
-        					status.addClass("alert-danger");
-        				}
-        			});
+                var status = $("#router-status");
+                if (connected) {
+                  status.text("Router Connected");
+                  status.removeClass("alert-danger");
+                  status.addClass("alert-success");
+                } else {
+                  status.text("Router Disconnected");
+                  status.removeClass("alert-success");
+                  status.addClass("alert-danger");
+                }
+              });
 
               ra.on_set_period(function(user, period) {
                   $("tr.subject-" + user + " :nth-child(3)").text(period); //Display current period for each user
@@ -165,6 +165,7 @@
                       }
                       $("table.config").append(tr);
                   }
+
               });
 
 
@@ -178,6 +179,7 @@
               if ($.isArray(config.groups)) {
                   for (var groupId = 0; groupId < config.groups.length; groupId++) {
                       if ($.isArray(config.groups[groupId])) {
+                          var id = parseInt(ra.subjects[i].user_id);
                           if (config.groups[groupId].indexOf(parseInt(ra.subjects[i].user_id)) > -1) { //Nested group array
                               ra.set_group(groupId + 1, ra.subjects[i].user_id);
                           }

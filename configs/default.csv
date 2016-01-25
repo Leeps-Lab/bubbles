@@ -1,6 +1,6 @@
-period,groups,ymax,ymin,period_length_s,num_sub_periods,action_clickable,step,snap,payoff,hidePayoffs,payoffProjection
-1,"[[1,2,3,4]]",1000,0,30,0,1,0.01,0.5,stable,true,true
-2,"[[1,2,3,4]]",1000,0,30,0,1,0.3,0.5,stable,true,false
-3,"[[1,2,3,4]]",1000,0,30,0,1,0.3,0.1,stable,false,true
-4,"[[1,2,3,4]]",1000,0,30,0,1,0.3,0.1,stable,false,false
-5,"[[1,2,3,4]]",1000,0,30,0,1,0.3,0.1,stable,true,true
+period,groups,ymax,ymin,period_length_s,num_sub_periods,action_clickable,step,snap,payoff,hidePayoffs,payoffProjection,q1,q2,mu
+1,"[[1,2,3,4]]",1000,0,30,0,1,0.01,0.5,stable,true,true,2/3,1/3,100
+2,"[[1,2,3,4]]",1000,0,30,0,1,0.3,0.5,stable,true,false,2/3,1/3,100
+3,"[[1,2,3,4]]",1000,0,30,0,1,0.3,0.1,stable,false,true,2/3,1/3,100
+4,"[[1,2,3,4]]",1000,0,30,0,1,0.3,0.1,stable,false,false,2/3,1/3,100
+5,"[[1,2,3,4]]",1000,0,30,0,1,0.3,0.1,stable,true,true,2/3,1/3,100
