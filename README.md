@@ -31,5 +31,7 @@ A modular "framework" for including a bubbles interface
 >mu [Int] --parameter for BJ Pricing Payoff formula. Used in payoff calculation.
 
 >minX [Int] -- Sets the minimum X value for player action
+
 >maxX [Int] -- Sets the maximum X value for player action
+
 >adjustAccuracy [Int/Float] -- Determines the accuracy at which a player can adjust their action. For actions from 0-1, accuracy should be .01, which allows the user to select an X value with accuracy +- .01 giving them 100 choices.
