@@ -36,13 +36,17 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         $scope.mu = rs.config.mu;
         $scope.ticksPerSubPeriod = Math.max(Math.floor(rs.config.period_length_s * CLOCK_FREQUENCY / numSubPeriods), 1);
 
+        $scope.minX = 0;
+        $scope.maxX = 1;
+        $scope.adjustAccuracy = 0.01;
+
         var currSlideTime = new Date().getTime();
 
         $("#slider").slider({
-            value: 0,
-            min: 0,
-            max: 10,
-            step: 0.1,
+            value: $scope.minX,
+            min: $scope.minX,
+            max: $scope.maxX,
+            step: $scope.adjustAccuracy,
             slide: function(event, ui) {
                 var nowSlide = new Date().getTime();
                 var diff = nowSlide - currSlideTime;
@@ -130,9 +134,6 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         //causes angular $watch trigger to redraw plots
         $scope.tick = tick;
 
-        // have the last person in each group log the data
-        if ( (parseInt(rs.user_id) % rs.subjects.length) == 0) rs.send("state_sync", { state: $scope.state });
-        
         // End of a sub period (in the "continuous" version, every tick is the end of a sub period)
         if (tick % $scope.ticksPerSubPeriod === 0) {
             var reward = $scope.payoffFunction($scope.indexFromId(rs.user_id));
@@ -239,23 +240,21 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
                 }
                 */
                 
-                //payoff = 75 * elem.action * (1 + scalar);
+                //$scope.dev_log("q1: " + q1 + " q2:" + q2 + " q3:" + q3);
 
                 var minusOne = (elem.rank-1) / (rs.subjects.length-1);
                 var minusTwo = (elem.rank-2) / (rs.subjects.length-2);
                 
                 var rightTerm;
-
-                // If rs.subjects.length <= 2, then one of these terms will be infinity (division by 0)
                 if (isNaN(minusTwo) || !isFinite(minusTwo)) {
                     rightTerm = 0;
                 } else {
                     rightTerm = Math.max(0, minusOne * minusTwo);
                 }
 
-                payoff = $scope.mu * ($scope.q1 + 2*$scope.q2*minusOne + 3*$scope.q3*rightTerm);
+                payoff = $scope.mu * elem.action * ($scope.q1 + 2*$scope.q2*minusOne + 3*$scope.q3*rightTerm);
                
-                
+                //payoff = 75 * elem.action * (1 + scalar);
             } else if (rs.config.payoff == "unstable") {
                 payoff = 66.6 * elem.action * (1 + ((elem.rank-1))/(rs.subjects.length-1));
             }
@@ -452,7 +451,7 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                             projectionData.push([j, $scope.payoffTargetFunction(i)]);
                             
                             /* inrecement j to get the next projected payoff at new location j*/
-                            j += 0.05; 
+                            j += $scope.adjustAccuracy; 
                             
                            
                         }
@@ -500,8 +499,8 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                     xaxis: {
                         ticks: 0,
                         tickLength: 0,
-                        min: 0,
-                        max: 10,
+                        min: $scope.minX,
+                        max: $scope.maxX,
                         ticks: 10
                     },
                     yaxis: {

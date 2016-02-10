@@ -23,3 +23,13 @@ A modular "framework" for including a bubbles interface
 >hidePayoffs [Boolean] --sets whether or not the opponents' payoffs are visible
 
 >payoffProjection [Boolean] --determines whether or not the player sees a line on their actionspace representing all possible payoffs for different strategies
+
+>q1 [Float 0-1] --parameter for BJ Pricing Payoff formula. Used in part to determine parameter q3 (1-q1-q2 = q3)
+
+>q2 [Float 0-1] --parameter for BJ Pricing Payoff formula. Used in part to determine parameter q3 (1-q1-q2 = q3)
+
+>mu [Int] --parameter for BJ Pricing Payoff formula. Used in payoff calculation.
+
+>minX [Int] -- Sets the minimum X value for player action
+>maxX [Int] -- Sets the maximum X value for player action
+>adjustAccuracy [Int/Float] -- Determines the accuracy at which a player can adjust their action. For actions from 0-1, accuracy should be .01, which allows the user to select an X value with accuracy +- .01 giving them 100 choices.
