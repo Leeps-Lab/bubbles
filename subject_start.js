@@ -9,6 +9,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
     $scope.actionShow = false;
     $scope.flowShow = false;
+    $scope.histShow = false;
     $scope.actions = [];
     $scope.targets = [];
     $scope.colors = [ "#5dbb00", "#b7184d", "#0174f7", "black", "yellow", "orange", "purple", "brown" ];
@@ -27,8 +28,9 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
         var numSubPeriods = rs.config.num_sub_periods || (rs.config.period_length_s * CLOCK_FREQUENCY);
         $scope.throttleStep = rs.config.step || 0;
-        $scope.snapDistance = rs.config.snap || 0.1;
+        $scope.snapDistance = rs.config.snap || 0.001;
         $scope.hidePayoffs  = rs.config.hidePayoffs || false;
+        $scope.histShow  = rs.config.actionHistory || false;
         $scope.payoffHorizon = rs.config.payoffProjection || false;
         $scope.q1 = eval(rs.config.q1);
         $scope.q2 = eval(rs.config.q2);
@@ -36,9 +38,9 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         $scope.mu = rs.config.mu;
         $scope.ticksPerSubPeriod = Math.max(Math.floor(rs.config.period_length_s * CLOCK_FREQUENCY / numSubPeriods), 1);
 
-        $scope.minX = 0;
-        $scope.maxX = 1;
-        $scope.adjustAccuracy = 0.01;
+        $scope.minX = rs.config.minX || 0;
+        $scope.maxX = rs.config.maxX || 1;
+        $scope.adjustAccuracy = parseFloat(rs.config.adjustAccuracy) || .01;
 
         var currSlideTime = new Date().getTime();
 
@@ -149,6 +151,13 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
             if ($scope.state[i].id == index) return $scope.state[i].payoff
         }
     }
+
+     $scope.actionForI = function(index) {
+        $scope.bjPricing($scope.actions);
+        for (var i = 0; i < rs.subjects.length; i++) {
+            if ($scope.state[i].id == index) return $scope.state[i].action
+        }
+     }
 
     $scope.payoffTargetFunction = function(index) {
         $scope.bjPricing($scope.targets);
@@ -618,6 +627,120 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
 
                 for (var i = 0; i < rs.subjects.length; i++) {
                     if ($scope.indexFromId(rs.user_id) != i && !$scope.hidePayoffs) {
+                        dataset.push({
+                            data: flows[i],
+                            lines: {
+                                fill: false,
+                                lineWidth: 3,
+                                fillColor: $scope.colors[$scope.indexFromId(rs.user_id)]
+                            },
+                            color: $scope.colors[i]
+                        });
+                    }
+
+                }
+
+
+                $.plot(elem, dataset, opts);
+            }
+        }
+    }
+}]);
+//
+//  controls flow payoff flot graph
+//
+Redwood.directive('actionHistory', ['RedwoodSubject', function(rs) {
+    return {
+        link: function($scope, elem, attr) {
+
+            var plot = [],
+                flows = [[]],
+                opponentPlot = [],
+                subPeriods = [],
+                loaded = false;
+
+            rs.on_load(function() {
+                init();
+            });
+
+            function init() {
+                if ($scope.ticksPerSubPeriod > 1) {
+                    var subPeriod = 0;
+                    do {
+                        subPeriod += $scope.ticksPerSubPeriod;
+                        subPeriods.push(subPeriod / $scope.clock.getDurationInTicks());
+                    } while (subPeriod < $scope.clock.getDurationInTicks());
+                }
+
+                for(var i = 0; i < rs.subjects.length; i++) {
+                    flows[i] = [];
+                }
+
+                loaded = true;
+                $scope.replotHist();
+            }
+
+            $scope.$watch('tick', function(tick) {
+                for(var i = 0; i < rs.subjects.length; i++) {
+                    var data = [ ($scope.tick - $scope.ticksPerSubPeriod) / $scope.clock.getDurationInTicks(), $scope.actionForI(i) ];
+                    flows[i].push(data);
+                }
+                $scope.replotHist();
+            }, true);
+
+            //watch for end of period to change color of bg
+            $scope.$watch('bgColor', function() {
+                $scope.replotHist();
+            }, true);
+
+            $scope.replotHist = function() {
+
+                if (!loaded) return;
+                var xRange = 1;
+                var opts = {
+                    xaxis: {
+                        ticks: 0,
+                        tickLength: 0,
+                        min: 0,
+                        max: xRange,
+                        ticks: 10
+                    },
+                    yaxis: {
+                        tickLength: 0,
+                        min: rs.config.minX,
+                        max: rs.config.maxX
+                    },
+                    series: {
+                        shadowSize: 0
+                    },
+                    grid: {
+                        backgroundColor: $scope.bgColor
+                    }
+                };
+                var dataset = [];
+
+                dataset.push({ //display the current time indicator as a vertical grey line
+                    data: [
+                        [$scope.tick / $scope.clock.getDurationInTicks(), opts.yaxis.min],
+                        [$scope.tick / $scope.clock.getDurationInTicks(), opts.yaxis.max]
+                    ],
+                    color: "grey"
+                });
+
+
+                /* First plot our own payoff data so we can shade it and put other payoffs ontop */
+                dataset.push({
+                    data: flows[$scope.indexFromId(rs.user_id)],
+                    lines: {
+                            fill: false,
+                            lineWidth: 2,
+                            fillColor: $scope.colors[$scope.indexFromId(rs.user_id)]
+                    },
+                    color: $scope.colors[$scope.indexFromId(rs.user_id)]
+                });
+
+                for (var i = 0; i < rs.subjects.length; i++) {
+                    if ($scope.indexFromId(rs.user_id) != i && !$scope.hideActions) {
                         dataset.push({
                             data: flows[i],
                             lines: {
