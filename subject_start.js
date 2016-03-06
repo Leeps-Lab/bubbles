@@ -12,10 +12,12 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     $scope.histShow = false;
     $scope.actions = [];
     $scope.targets = [];
-    $scope.colors = [ "#5dbb00", "#b7184d", "#0174f7", "black", "yellow", "orange", "purple", "brown" ];
+    $scope.colors = ["#b7184d", "#0174f7", "black", "yellow", "orange", "purple", "brown" ];
+    $scope.myColor = "#5dbb00";
 
     rs.on_load(function() {
         $scope.text = "x: 0";
+        $scope.accPayoffText = "Accumulated Rewards: " + rs.accumulated_points.toFixed(2);
 
         $scope.clock  = SynchronizedStopWatch.instance()
             .frequency(CLOCK_FREQUENCY).onTick(processTick)
@@ -23,6 +25,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
                 rs.trigger("move_on");
         });
 
+        $scope.colors = shuffleArray($scope.colors);
 
         $scope.yMax = rs.config.ymax;
 
@@ -91,7 +94,8 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
         $scope.rewards = [];
         $scope.opponentRewards = [];
-        
+        $scope.roundPayoff = 0;
+
         $scope.bgColor = "white";
 
         $scope.loaded = true;
@@ -111,8 +115,9 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
     rs.on("move_on", function(msg) {
         $scope.bgColor = "#ccc";
+        $scope.showEnding = true;
         $("#slider").slider("disable");
-        rs.next_period(3);
+        rs.next_period(10);
     });
 
     rs.recv("updateAction", function(uid, msg) {
@@ -141,6 +146,14 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
             var reward = $scope.payoffFunction($scope.indexFromId(rs.user_id));
             $scope.rewards.push(reward);
             rs.add_points(reward * $scope.ticksPerSubPeriod / $scope.clock.getDurationInTicks());
+            $scope.roundPayoff += (reward * $scope.ticksPerSubPeriod / $scope.clock.getDurationInTicks());
+            $scope.roundPayoffText = "Round Reward: " + $scope.roundPayoff.toFixed(2);
+        }
+
+        if ($scope.indexFromId(rs.user_id) == 1) {
+            rs.send("state", {state: $scope.state});
+            rs.send("actions", {actions: $scope.actions});
+            rs.send("targets", {targets: $scope.targets});
         }
 
     }
@@ -289,6 +302,15 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         if ($scope.logging) console.debug(msg);
     }
 
+    function shuffleArray(array) {
+        for (var i = array.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var temp = array[i];
+            array[i] = array[j];
+            array[j] = temp;
+        }
+        return array;
+    }
 
 }]);
 
@@ -426,18 +448,31 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
 
                     var fillColor = $scope.colors[i];
 
-                    
-                    actions.push({
-                        data: pt,
-                        points: { 
-                            show: true, 
-                            radius: 10, 
-                            lineWidth: 1, 
-                            fill: false,
-                            fillColor: $scope.colors[i]
-                        },
-                        color: $scope.colors[i]
-                    });
+                    if ( $scope.indexFromId(rs.user_id) == i ) {
+                        actions.push({
+                            data: pt,
+                            points: { 
+                                show: true, 
+                                radius: 10, 
+                                lineWidth: 1, 
+                                fill: false,
+                                fillColor: $scope.myColor
+                            },
+                            color: $scope.myColor
+                        });
+                    } else {
+                        actions.push({
+                            data: pt,
+                            points: { 
+                                show: true, 
+                                radius: 10, 
+                                lineWidth: 1, 
+                                fill: false,
+                                fillColor: $scope.colors[i]
+                            },
+                            color: $scope.colors[i]
+                        });
+                    }
 
                     if ($scope.payoffHorizon && $scope.indexFromId(rs.user_id) == i) {
 
@@ -495,7 +530,7 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                     lines: {
                         lineWidth: 1
                     },
-                    color: $scope.colors[$scope.indexFromId(rs.user_id)]
+                    color: $scope.myColor
                 });
         
                 replot();
@@ -567,9 +602,11 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
             }
 
             $scope.$watch('tick', function(tick) {
-                for(var i = 0; i < rs.subjects.length; i++) {
-                    var data = [ ($scope.tick - $scope.ticksPerSubPeriod) / $scope.clock.getDurationInTicks(), $scope.payoffFunction(i) ];
-                    flows[i].push(data);
+                if (tick % $scope.ticksPerSubPeriod === 0) {
+                    for(var i = 0; i < rs.subjects.length; i++) {
+                        var data = [ ($scope.tick) / $scope.clock.getDurationInTicks(), $scope.payoffFunction(i) ];
+                        flows[i].push(data);
+                    }
                 }
                 $scope.replotFlow();
             }, true);
@@ -604,7 +641,18 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                     }
                 };
                 var dataset = [];
-
+                for (var p = 0; p < subPeriods.length; p++) { //mark each sub-period with a vertical red line
+                    dataset.push({
+                        data: [
+                            [subPeriods[p], opts.yaxis.min],
+                            [subPeriods[p], opts.yaxis.max]
+                        ],
+                        lines: {
+                            lineWidth: 1
+                        },
+                        color: "red"
+                    });
+                }
                 dataset.push({ //display the current time indicator as a vertical grey line
                     data: [
                         [$scope.tick / $scope.clock.getDurationInTicks(), opts.yaxis.min],
@@ -620,9 +668,9 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                     lines: {
                             fill: true,
                             lineWidth: 2,
-                            fillColor: $scope.colors[$scope.indexFromId(rs.user_id)]
+                            fillColor: $scope.myColor
                     },
-                    color: $scope.colors[$scope.indexFromId(rs.user_id)]
+                    color: $scope.myColor
                 });
 
                 for (var i = 0; i < rs.subjects.length; i++) {
@@ -719,6 +767,19 @@ Redwood.directive('actionHistory', ['RedwoodSubject', function(rs) {
                 };
                 var dataset = [];
 
+                for (var p = 0; p < subPeriods.length; p++) { //mark each sub-period with a vertical red line
+                    dataset.push({
+                        data: [
+                            [subPeriods[p], opts.yaxis.min],
+                            [subPeriods[p], opts.yaxis.max]
+                        ],
+                        lines: {
+                            lineWidth: 1
+                        },
+                        color: "red"
+                    });
+                }
+
                 dataset.push({ //display the current time indicator as a vertical grey line
                     data: [
                         [$scope.tick / $scope.clock.getDurationInTicks(), opts.yaxis.min],
@@ -734,9 +795,9 @@ Redwood.directive('actionHistory', ['RedwoodSubject', function(rs) {
                     lines: {
                             fill: false,
                             lineWidth: 2,
-                            fillColor: $scope.colors[$scope.indexFromId(rs.user_id)]
+                            fillColor: $scope.myColor
                     },
-                    color: $scope.colors[$scope.indexFromId(rs.user_id)]
+                    color: $scope.myColor
                 });
 
                 for (var i = 0; i < rs.subjects.length; i++) {
