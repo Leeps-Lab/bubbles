@@ -1,12 +1,12 @@
 Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'SynchronizedStopWatch', function($rootScope, $scope, rs, SynchronizedStopWatch) {
     
     //Controls tick frequency for refreshing of flow chart
-    var CLOCK_FREQUENCY = 10;
+    var CLOCK_FREQUENCY = 5;
     var LOG_FREQUENCY = 5;
 
     //Controls how often the slider is allowed
     // to update the user's value. In ms.
-    var SLIDER_REFRESH_TIME = 45;
+    var SLIDER_REFRESH_TIME = 60;
 
     $scope.actionShow = false;
     $scope.flowShow = false;
@@ -21,6 +21,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     $scope.ids = [];
     $scope.payoffs = [];
     $scope.subPeriodNum = -1;
+    $scope.NUMHORIZLINES = 5;
 
     rs.on_load(function() {
 
@@ -36,6 +37,12 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         $scope.colors = shuffleArray($scope.colors);
 
         $scope.yMax = rs.config.ymax;
+        
+        if (rs.config.num_sub_periods == 0) {
+            $scope.continousGame = true;
+        } else {
+            $scope.continousGame = false;
+        }
 
         var numSubPeriods = rs.config.num_sub_periods || (rs.config.period_length_s * CLOCK_FREQUENCY);
         $scope.throttleStep = rs.config.step || 0;
@@ -43,9 +50,12 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         $scope.hidePayoffs  = rs.config.hidePayoffs || false;
         $scope.histShow  = rs.config.actionHistory || false;
         $scope.payoffHorizon = rs.config.payoffProjection || false;
-        $scope.q1 = eval(rs.config.q1);
-        $scope.q2 = eval(rs.config.q2);
-        $scope.q3 = 1-$scope.q1-$scope.q2;
+        $scope.qone = parseFloat(rs.config.q1);
+        $scope.qtwo = parseFloat(rs.config.q2);
+        //console.log("q1: " + $scope.qone + " q2: " + $scope.qtwo);
+        $scope.qthree = parseFloat((1 - $scope.qone - $scope.qtwo).toFixed(2));
+        if ($scope.qthree == 0.01) $scope.qthree = 0;
+        //console.log("q1: " + $scope.qone + " q2: " + $scope.qtwo + " q3: " + $scope.qthree);
         $scope.mu = rs.config.mu;
         $scope.ticksPerSubPeriod = Math.max(Math.floor(rs.config.period_length_s * CLOCK_FREQUENCY / numSubPeriods), 1);
 
@@ -54,9 +64,37 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         $scope.adjustAccuracy = parseFloat(rs.config.adjustAccuracy) || .01;
         $scope.payoffTypeText = "Game Type: " + rs.config.payoffLabel;
         var currSlideTime = new Date().getTime();
+        $scope.stepSize = rs.config.maxX/rs.subjects.length;
+        
+        $scope.initialActions = rs.config.initialActions.replace('[', '').replace(']', '').split(',');
+        
+        for (var i = 0; i < $scope.initialActions.length; i++) {
+            //console.log("Initial Action at: " + i + " is " + parseFloat($scope.initialActions[i]));
+            $scope.initialActions[i] = parseFloat($scope.initialActions[i]);
+        }
+
+        //console.log("ACTIONS");
+        //console.log($scope.initialActions);
+        
+        //initialize everyone's actions and targets
+        for (var i = 0; i < rs.subjects.length; i++) {
+            
+            $scope.actions[i] = $scope.initialActions[i];
+            $scope.discreteActions[i] = $scope.initialActions[i];
+            $scope.targets[i] = $scope.initialActions[i];
+            $scope.discreteTargets[i] = $scope.initialActions[i];
+
+            var id = rs.subjects[i].user_id;
+            var index = $scope.indexFromId(id);
+            
+            if (index == $scope.indexFromId(rs.user_id)) {
+                $scope.myInitialAction = $scope.initialActions[i];
+            }
+            $scope.ids[index] = id;
+        }
 
         $("#slider").slider({
-            value: $scope.minX,
+            value: $scope.myInitialAction,
             min: $scope.minX,
             max: $scope.maxX,
             step: $scope.adjustAccuracy,
@@ -108,17 +146,6 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
         $scope.loaded = true;
         
-
-        //initialize everyone's actions and targets
-        for (var i = 0; i < rs.subjects.length; i++) {
-            $scope.actions[i] = 0;
-            $scope.discreteActions[i] = 0;
-            $scope.targets[i] = 0;
-            $scope.discreteTargets[i] = 0;
-            var id = rs.subjects[i].user_id;
-            var index = $scope.indexFromId(id);
-            $scope.ids[index] = id;
-        }
 
         $scope.dev_log("calculated index" + $scope.indexFromId(rs.user_id));
         $scope.dev_log(rs);
@@ -173,7 +200,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
             $scope.discreteActions = $scope.actions.slice();
             $scope.discreteTargets = $scope.actions.slice();
 
-            console.debug("updating discreteActions");
+           
         }
         // Discrete arrays need to always hold current info for the current user, they have knowledge
         // of their own actions but not others. The others are updated above in the tick % tickspersubperiod conditional
@@ -192,8 +219,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
             /* If our difference is greather than the snap distance, and a throttle is set, let's throttle */
             if (targetDiff > $scope.snapDistance && $scope.throttleStep != 0) {
-                console.debug("There's a difference between actions and targets for index i");
-                console.debug("action: " + $scope.actions[i] + " , target: " + $scope.targets[i]);
+                
                 var target = $scope.targets[i],
                     action = $scope.actions[i],
                     step   = 0;
@@ -213,13 +239,13 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
                     $scope.actions[i] = $scope.targets[i];
 
                     if ($scope.indexFromId(rs.user_id) == i) {
-                        $scope.discreteActions[i] = $scope.targets[i];
+                        $scope.discreteActions[i] = $scope.discreteTargets[i];
                     }
                 
                 } else { //else, we can move by a step
                     $scope.actions[i] = $scope.actions[i] + step;
                     if ($scope.indexFromId(rs.user_id) == i) {
-                        $scope.discreteActions[i] = $scope.actions[i] + step;
+                        $scope.discreteActions[i] = $scope.discreteActions[i] + step;
                     }
                 }
 
@@ -232,21 +258,29 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
             }
         }
 
+        //console.log("about to log");
+        if (tick % $scope.ticksPerSubPeriod === 0) {
+            //console.log("logging");
+            $scope.log(rs.user_id, tick);
+        }
 
         //causes angular $watch trigger to redraw plots
         $scope.tick = tick;
-
-
-        
-        if (tick % $scope.ticksPerSubPeriod === 0) {
-            $scope.log(rs.user_id, tick);
-        }
         
     }
 
+    $scope.logCount = 0;
     // data output messages logged only for one user 
     // eliminating redundant logging.
     $scope.log = function(uid, tick) {
+        if ($scope.continousGame) {
+            if ($scope.logCount == LOG_FREQUENCY) {
+               $scope.logCount = 0; 
+            } else {
+                $scope.logCount++;
+                return;
+            }
+        }
 
         // Run logging with discreteAction data as state 
         // This works because discreteActions is equal to $scope.actions
@@ -258,17 +292,17 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
             var obj = $scope.state[i];
             var index = $scope.indexFromId(rs.subjects[i].user_id);
             var newObj = {
-                subjectid: $scope.ids[i],
-                action: $scope.actions[i],
-                target: $scope.targets[i],
+                subjectid: obj.id + 1,
+                action: obj.action,
+                target: $scope.targets[index],
                 rank: obj.rank,
                 subperiodNumber: $scope.subPeriodNum,
-                payoff: $scope.payoffFunction(index)
+                payoff: $scope.discretePayoffFunction(i)
             };
             $scope.data.push(newObj);
         }
-        console.log($scope.data);
-        if ($scope.indexFromId(rs.user_id) == 1) {
+
+        if ($scope.indexFromId(rs.user_id) == 0) {
             rs.send("state", {state: $scope.data});
             rs.send("actions", {actions: $scope.actions});
             rs.send("targets", {targets: $scope.targets});
@@ -356,6 +390,9 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
                 nextelem   = $scope.state[i+1],
                 rank       = i+1;
 
+            var index = $scope.indexFromId(i);
+            thiselem.subjectid = $scope.ids[index]
+
             //if we're on the last element, and the rank hasn't been set yet
             if (nextelem == null) {
                 if (thiselem.rank == 0) {
@@ -383,36 +420,20 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
             var elem = $scope.state[i];
             var payoff = 0;
 
-            if (rs.config.payoff == "stable") {
-                /*
-                var numerator = ((elem.rank-1) * (elem.rank-2));
-                var denominator = ((rs.subjects.length-1) * (rs.subjects.length-2));
-                var scalar = 0;
-                if (denominator == 0) {
-                    scalar = 0;
-                } else {
-                    scalar = Math.max(0, numerator / denominator);
-                }
-                */
-                
-                //$scope.dev_log("q1: " + q1 + " q2:" + q2 + " q3:" + q3);
 
-                var minusOne = (elem.rank-1) / (rs.subjects.length-1);
-                var minusTwo = (elem.rank-2) / (rs.subjects.length-2);
-                
-                var rightTerm;
-                if (isNaN(minusTwo) || !isFinite(minusTwo)) {
-                    rightTerm = 0;
-                } else {
-                    rightTerm = Math.max(0, minusOne * minusTwo);
-                }
-
-                payoff = $scope.mu * elem.action * ($scope.q1 + 2*$scope.q2*minusOne + 3*$scope.q3*rightTerm);
-               
-                //payoff = 75 * elem.action * (1 + scalar);
-            } else if (rs.config.payoff == "unstable") {
-                payoff = 66.6 * elem.action * (1 + ((elem.rank-1))/(rs.subjects.length-1));
+            var minusOne = (elem.rank-1) / (rs.subjects.length-1);
+            var minusTwo = (elem.rank-2) / (rs.subjects.length-2);
+            
+            var rightTerm;
+            if (isNaN(minusTwo) || !isFinite(minusTwo)) {
+                rightTerm = 0;
+            } else {
+                rightTerm = Math.max(0, minusOne * minusTwo);
             }
+
+            payoff = $scope.mu * elem.action * ($scope.qone + 2*$scope.qtwo*minusOne + 3*$scope.qthree*rightTerm);
+               
+            
 
             // set each element's payoff attribute
             // to the calculated payoff. Therefor we calculate
@@ -420,9 +441,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
             // for a specific player's payoff later.
             elem.payoff = payoff;
         }
-
         return $scope.state;
-
     }
 
     $scope.indexFromId = function(id) {
@@ -434,7 +453,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     }
 
 
-    $scope.logging = true;
+    $scope.logging = false;
     $scope.dev_log = function(msg) {
         if ($scope.logging) console.debug(msg);
     }
@@ -479,7 +498,7 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                 }
                 loaded = true;
                 rebuild();
-                console.log(elem);
+                ////console.log(elem);
             }
 
             $(elem).bind("onclick", function (event, pos, item) {
@@ -532,8 +551,8 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                     // plot hollow circle for current action for this tick
                     pt = [];
                     if ( $scope.indexFromId(rs.user_id) == i ) {
-                        console.log("My payoff: " + $scope.discretePayoffFunction(i));
-                        console.log($scope.discreteActions);
+                        ////console.log("My payoff: " + $scope.discretePayoffFunction(i));
+                        ////console.log($scope.discreteActions);
                         pt.push([$scope.discreteActions[i], $scope.discretePayoffFunction(i) ]);
                     } else {
                         if ($scope.hidePayoffs) {
@@ -601,6 +620,7 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                             After we're done building our projection data, reset the target to the
                             correct (actual) value and append this data to our flot dataset
                         */
+                        $scope.actions[$scope.indexFromId(rs.user_id)] = targ;
                         $scope.discreteActions[$scope.indexFromId(rs.user_id)] = targ;
 
                         actions.push({
@@ -654,9 +674,21 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                         shadowSize: 0
                     },
                     grid: {
+                        markings: [],
                         backgroundColor: $scope.bgColor
                     }
                 };
+                for (var i = 1; i < $scope.NUMHORIZLINES; i++) {
+                    actionopts.grid.markings.push(
+                        {
+                            color: '#eee',
+                            yaxis: {
+                                from: i * ($scope.yMax/$scope.NUMHORIZLINES),
+                                to: i * ($scope.yMax/$scope.NUMHORIZLINES)
+                            }
+                        }
+                    );
+                }
                 $.plot(elem, actions, actionopts);
             }
 
@@ -701,10 +733,12 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
 
             $scope.$watch('tick', function(tick) {
                 if (tick % $scope.ticksPerSubPeriod === 0) {
+                    //console.log("STATE:  ");
+                    //console.log($scope.state);
                     for(var i = 0; i < rs.subjects.length; i++) {
                         if ($scope.indexFromId(rs.user_id) == i) {
-                            console.log("My payoff: " + $scope.discretePayoffFunction(i));
-                            console.log($scope.discreteActions);
+                            ////console.log("My payoff: " + $scope.discretePayoffFunction(i));
+                            ////console.log($scope.discreteActions);
                         }
                         var data = [ ($scope.tick - $scope.ticksPerSubPeriod) / $scope.clock.getDurationInTicks(), $scope.discretePayoffFunction(i) ];
                         flows[i].push(data);
@@ -742,9 +776,24 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                         shadowSize: 0
                     },
                     grid: {
+                        markings: [
+                        ],
                         backgroundColor: $scope.bgColor
                     }
                 };
+
+                for (var i = 1; i < $scope.NUMHORIZLINES; i++) {
+                    opts.grid.markings.push(
+                        {
+                            color: '#eee',
+                            yaxis: {
+                                from: i * ($scope.yMax/$scope.NUMHORIZLINES),
+                                to: i * ($scope.yMax/$scope.NUMHORIZLINES)
+                            }
+                        }
+                    );
+                }
+                
                 var dataset = [];
                 for (var p = 0; p < subPeriods.length; p++) { //mark each sub-period with a vertical red line
                     dataset.push({
@@ -784,15 +833,15 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                             data: flows[i],
                             lines: {
                                 fill: false,
-                                lineWidth: 3,
-                                fillColor: $scope.colors[$scope.indexFromId(rs.user_id)]
+                                lineWidth: 3
                             },
                             color: $scope.colors[i]
                         });
                     }
 
                 }
-
+                //console.log("STATE");
+                //console.log($scope.state);
 
                 $.plot(elem, dataset, opts);
             }
