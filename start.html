@@ -1,0 +1,80 @@
+<style>
+	.actionSpace {
+		height:300px;
+		width: 100%;
+	}
+	#flow {
+		height: 300px;
+		width: 100%;
+	}
+	.actionHistory {
+		height: 100px;
+		width: 98%;
+		margin-left: 12px;
+		padding-right: 10px;
+	}
+	#slider {
+		margin-left: 18px;
+		margin-right: 10px;
+		margin-top: 15px;
+	}
+	p {
+		text-align: center;
+		font-size: 13px;
+		margin-top: 25px;
+	}
+	p.info {
+		margin: 5px;
+	}
+	hr {
+		margin-top: 5px;
+		margin-bottom: 5px;
+	}
+</style>
+
+<div ng-controller="SubjectCtrl">
+		
+	<div class="navbar navbar-fixed-top container">
+		<div class="navbar navbar-default" style="margin-bottom: 0;">
+			<div class="navbar-brand" href="#">Economics Experiment</div>
+			<ul class="nav navbar-nav">
+				<li class="active">
+					<a>User ID: <span>{{$root.user_id}}</span></a>
+				</li>
+			</ul>
+		</div>
+	</div>
+	
+	<div class="container">
+		<div class="row">
+			<div class="col-lg-6">
+				<div class="well">
+					<p class="info" ng-bind="roundPayoffText"> Total Round Payoff: </p>
+					<hr>
+					<p class="info" ng-bind="accPayoffText"> Cumulative Payoff So Far: </p>
+					<hr>
+					<p class="info" ng-bind="payoffTypeText"> Game Type: </p>
+				</div>
+			</div>
+			<div class="col-lg-6" ng-show="histShow">
+				<div class="actionHistory" action-history>
+				</div>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-lg-6">
+				<div class="actionSpace" ng-show="actionShow" action-flot>
+				</div>
+			</div>
+			<div class="col-lg-6">
+				<div ng-show="flowShow" id="flow" flowflot></div>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-md-6">
+				<div id="slider"></div>
+				<p ng-bind="text">x: </p>
+			</div>
+		</div>
+	</div>
+</body>
