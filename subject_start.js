@@ -371,7 +371,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         for (var i = 0; i < array.length; i++) {
             var obj = {
                 "id": i, //rs user id since array stores from 0->n-1 where n is the number of players
-                "action": array[i],
+                "action": array[i] || null,
                 "rank": 0,
                 "payoff": 0
             };
