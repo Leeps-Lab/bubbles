@@ -292,7 +292,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
             var obj = $scope.state[i];
             var index = $scope.indexFromId(rs.subjects[i].user_id);
             var newObj = {
-                subjectid: obj.id + 1,
+                subjectid: rs.subjects[obj.id].user_id,
                 action: obj.action,
                 rank: obj.rank,
                 subperiodNumber: $scope.subPeriodNum,
@@ -446,11 +446,9 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     }
 
     $scope.indexFromId = function(id) {
-        var index = 0;
         for (var i = 0; i < rs.subjects.length; i++) {
-            if (parseInt(rs.subjects[i].user_id) < id) index++; 
+            if (rs.subjects[i].user_id == id) return i; 
         }
-        return index;
     }
 
 
