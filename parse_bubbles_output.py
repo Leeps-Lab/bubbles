@@ -9,7 +9,7 @@ from collections import defaultdict
 for filename in sys.argv[1:]:
     events_by_period_then_group = defaultdict(lambda: defaultdict(lambda: []))
     players = set()
-    with open(filename, 'rb') as infile:
+    with open(filename) as infile:
         reader = csv.DictReader(infile)
         for row in reader:
             row['Period'] = int(row['Period'])
