@@ -52,10 +52,10 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         $scope.payoffHorizon = rs.config.payoffProjection || false;
         $scope.qone = parseFloat(rs.config.q1);
         $scope.qtwo = parseFloat(rs.config.q2);
-        console.log("q1: " + $scope.qone + " q2: " + $scope.qtwo);
+       // console.log("q1: " + $scope.qone + " q2: " + $scope.qtwo);
         $scope.qthree = parseFloat((1 - $scope.qone - $scope.qtwo).toFixed(2));
         if ($scope.qthree == 0.01) $scope.qthree = 0;
-        console.log("q1: " + $scope.qone + " q2: " + $scope.qtwo + " q3: " + $scope.qthree);
+        //console.log("q1: " + $scope.qone + " q2: " + $scope.qtwo + " q3: " + $scope.qthree);
         $scope.mu = rs.config.mu;
         $scope.ticksPerSubPeriod = Math.max(Math.floor(rs.config.period_length_s * CLOCK_FREQUENCY / numSubPeriods), 1);
 
@@ -69,12 +69,12 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         $scope.initialActions = []; //rs.config.initialActions.replace('[', '').replace(']', '').split(',');
         
         for (var i = 0; i < $scope.initialActions.length; i++) {
-            console.log("Initial Action at: " + i + " is " + parseFloat($scope.initialActions[i]));
+            //console.log("Initial Action at: " + i + " is " + parseFloat($scope.initialActions[i]));
             $scope.initialActions[i] = parseFloat($scope.initialActions[i]);
         }
 
-        console.log("ACTIONS");
-        console.log($scope.initialActions);
+        //console.log("ACTIONS");
+        //console.log($scope.initialActions);
         
         //initialize everyone's actions and targets
         for (var i = 0; i < rs.subjects.length; i++) {
@@ -111,7 +111,6 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
                     $scope.text = "x: " + ui.value;
                     var msg = { "action": ui.value };
 
-                    rs.trigger("updateAction", msg);
                     rs.send("updateAction", msg);
                     
                     //we've slid
@@ -129,7 +128,6 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
                 $scope.text = "x: " + ui.value;
                 var msg = { "action": ui.value };
 
-                rs.trigger("updateAction", msg);
                 rs.send("updateAction", msg);
 
             }
@@ -258,9 +256,9 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
             }
         }
 
-        console.log("about to log");
+        //console.log("about to log");
         if (tick % $scope.ticksPerSubPeriod === 0) {
-            console.log("logging");
+            //console.log("logging");
             $scope.log(rs.user_id, tick);
         }
 
@@ -302,8 +300,8 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         }
         //console.log($scope.data);
         if ($scope.indexFromId(rs.user_id) == 0) {
-            console.log("for sure logging");
-            console.log($scope.data);
+            //console.log("for sure logging");
+            //console.log($scope.data);
             rs.send("state", {state: $scope.data});
             rs.send("actions", {actions: $scope.actions});
             rs.send("targets", {targets: $scope.targets});
@@ -732,8 +730,8 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
 
             $scope.$watch('tick', function(tick) {
                 if (tick % $scope.ticksPerSubPeriod === 0) {
-                    console.log("STATE:  ");
-                    console.log($scope.state);
+                    //console.log("STATE:  ");
+                    //console.log($scope.state);
                     for(var i = 0; i < rs.subjects.length; i++) {
                         if ($scope.indexFromId(rs.user_id) == i) {
                             //console.log("My payoff: " + $scope.discretePayoffFunction(i));
@@ -839,8 +837,8 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                     }
 
                 }
-                console.log("STATE");
-                console.log($scope.state);
+                //console.log("STATE");
+                //console.log($scope.state);
 
                 $.plot(elem, dataset, opts);
             }
