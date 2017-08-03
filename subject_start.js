@@ -479,10 +479,7 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                 discreteActions = [],
                 loaded = false;
 
-            rs.on_load(function() {
-                init();
-            });
-
+            rs.on_load(init);
 
             //initialize our actions data array starting everyone at (0,0)
             function init() {
@@ -493,9 +490,44 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                         color: $scope.colors[i]
                     });
                 }
+
+                var actionopts = {
+                    xaxis: {
+                        ticks: 0,
+                        tickLength: 0,
+                        min: $scope.minX,
+                        max: $scope.maxX,
+                        ticks: 10
+                    },
+                    yaxis: {
+                        tickLength: 0,
+                        min: 0,
+                        max: $scope.yMax
+                    },
+                    series: {
+                        shadowSize: 0
+                    },
+                    grid: {
+                        markings: [],
+                        backgroundColor: $scope.bgColor
+                    }
+                };
+                for (var i = 1; i < $scope.NUMHORIZLINES; i++) {
+                    actionopts.grid.markings.push(
+                        {
+                            color: '#eee',
+                            yaxis: {
+                                from: i * ($scope.yMax/$scope.NUMHORIZLINES),
+                                to: i * ($scope.yMax/$scope.NUMHORIZLINES)
+                            }
+                        }
+                    );
+                }
+                $scope.mainGraph = $.plot(elem, [], actionopts);
+                $scope.mainElemWidth = elem.width();
+
                 loaded = true;
                 rebuild();
-                //console.log(elem);
             }
 
             $(elem).bind("onclick", function (event, pos, item) {
@@ -507,7 +539,9 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
             });
 
             $scope.$watch('bgColor', function() {
-                rebuild();
+                $scope.mainGraph.getOptions().grid.backgroundColor = $scope.bgColor;
+                $scope.mainGraph.setupGrid();
+                $scope.mainGraph.draw();
             }, true);
 
             $scope.$watch('tick', function(tick) {
@@ -516,6 +550,14 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
 
 
             function rebuild() {
+                if (!loaded) return;
+
+                if(elem.width() != $scope.mainElemWidth) {
+                    $scope.mainElemWidth = elem.width();
+                    $scope.mainGraph.resize();
+                    $scope.mainGraph.setupGrid();
+                }
+
                 /* Flot data structure */
                 actions = [];
 
@@ -648,47 +690,9 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                     color: $scope.myColor
                 });
         
-                replot();
+                $scope.mainGraph.setData(actions);
+                $scope.mainGraph.draw();
             }
-
-            function replot() {
-
-                if (!loaded) return;
-                var actionopts = {
-                    xaxis: {
-                        ticks: 0,
-                        tickLength: 0,
-                        min: $scope.minX,
-                        max: $scope.maxX,
-                        ticks: 10
-                    },
-                    yaxis: {
-                        tickLength: 0,
-                        min: 0,
-                        max: $scope.yMax
-                    },
-                    series: {
-                        shadowSize: 0
-                    },
-                    grid: {
-                        markings: [],
-                        backgroundColor: $scope.bgColor
-                    }
-                };
-                for (var i = 1; i < $scope.NUMHORIZLINES; i++) {
-                    actionopts.grid.markings.push(
-                        {
-                            color: '#eee',
-                            yaxis: {
-                                from: i * ($scope.yMax/$scope.NUMHORIZLINES),
-                                to: i * ($scope.yMax/$scope.NUMHORIZLINES)
-                            }
-                        }
-                    );
-                }
-                $.plot(elem, actions, actionopts);
-            }
-
 
         }
     }
@@ -707,9 +711,7 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                 subPeriods = [],
                 loaded = false;
 
-            rs.on_load(function() {
-                init();
-            });
+            rs.on_load(init);
 
             function init() {
                 if ($scope.ticksPerSubPeriod > 1) {
@@ -724,37 +726,6 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                     flows[i] = [];
                 }
 
-                loaded = true;
-                $scope.replotFlow();
-            }
-
-            $scope.$watch('tick', function(tick) {
-                if (tick % $scope.ticksPerSubPeriod === 0) {
-                    //console.log("STATE:  ");
-                    //console.log($scope.state);
-                    for(var i = 0; i < rs.subjects.length; i++) {
-                        if ($scope.indexFromId(rs.user_id) == i) {
-                            //console.log("My payoff: " + $scope.discretePayoffFunction(i));
-                            //console.log($scope.discreteActions);
-                        }
-                        var data = [ ($scope.tick - $scope.ticksPerSubPeriod) / $scope.clock.getDurationInTicks(), $scope.discretePayoffFunction(i) ];
-                        flows[i].push(data);
-
-                        var data = [ ($scope.tick) / $scope.clock.getDurationInTicks(), $scope.discretePayoffFunction(i) ];
-                        flows[i].push(data);
-                    }
-                }
-                $scope.replotFlow();
-            }, true);
-
-            //watch for end of period to change color of bg
-            $scope.$watch('bgColor', function() {
-                $scope.replotFlow();
-            }, true);
-
-            $scope.replotFlow = function() {
-
-                if (!loaded) return;
                 var xRange = 1;
                 var opts = {
                     xaxis: {
@@ -790,13 +761,50 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                         }
                     );
                 }
+
+                $scope.payoffGraph = $.plot(elem, [], opts);
+                $scope.payoffElemWidth = elem.width();
+
+                loaded = true;
+                $scope.replotFlow();
+            }
+
+            $scope.$watch('tick', function(tick) {
+                if (tick % $scope.ticksPerSubPeriod === 0) {
+                    for(var i = 0; i < rs.subjects.length; i++) {
+                        var data = [ ($scope.tick - $scope.ticksPerSubPeriod) / $scope.clock.getDurationInTicks(), $scope.discretePayoffFunction(i) ];
+                        flows[i].push(data);
+
+                        var data = [ ($scope.tick) / $scope.clock.getDurationInTicks(), $scope.discretePayoffFunction(i) ];
+                        flows[i].push(data);
+                    }
+                }
+                $scope.replotFlow();
+            }, true);
+
+            //watch for end of period to change color of bg
+            $scope.$watch('bgColor', function() {
+                $scope.payoffGraph.getOptions().grid.backgroundColor = $scope.bgColor;
+                $scope.payoffGraph.setupGrid();
+                $scope.payoffGraph.draw();
+            }, true);
+
+            $scope.replotFlow = function() {
+
+                if (!loaded) return;
+
+                if ($scope.payoffElemWidth != elem.width()) {
+                    $scope.payoffElemWidth = elem.width();
+                    $scope.payoffGraph.resize();
+                    $scope.payoffGraph.setupGrid();
+                }
                 
                 var dataset = [];
                 for (var p = 0; p < subPeriods.length; p++) { //mark each sub-period with a vertical red line
                     dataset.push({
                         data: [
-                            [subPeriods[p], opts.yaxis.min],
-                            [subPeriods[p], opts.yaxis.max]
+                            [subPeriods[p], 0],
+                            [subPeriods[p], $scope.yMax]
                         ],
                         lines: {
                             lineWidth: 1
@@ -806,8 +814,8 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                 }
                 dataset.push({ //display the current time indicator as a vertical grey line
                     data: [
-                        [$scope.tick / $scope.clock.getDurationInTicks(), opts.yaxis.min],
-                        [$scope.tick / $scope.clock.getDurationInTicks(), opts.yaxis.max]
+                        [$scope.tick / $scope.clock.getDurationInTicks(), 0],
+                        [$scope.tick / $scope.clock.getDurationInTicks(), $scope.yMax]
                     ],
                     color: "grey"
                 });
@@ -840,13 +848,14 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                 //console.log("STATE");
                 //console.log($scope.state);
 
-                $.plot(elem, dataset, opts);
+                $scope.payoffGraph.setData(dataset);
+                $scope.payoffGraph.draw();
             }
         }
     }
 }]);
 //
-//  controls flow payoff flot graph
+//  controls action history flot graph
 //
 Redwood.directive('actionHistory', ['RedwoodSubject', function(rs) {
     return {
@@ -858,9 +867,7 @@ Redwood.directive('actionHistory', ['RedwoodSubject', function(rs) {
                 subPeriods = [],
                 loaded = false;
 
-            rs.on_load(function() {
-                init();
-            });
+            rs.on_load(init);
 
             function init() {
                 if ($scope.ticksPerSubPeriod > 1) {
@@ -876,31 +883,7 @@ Redwood.directive('actionHistory', ['RedwoodSubject', function(rs) {
                 }
 
                 loaded = true;
-                $scope.replotHist();
-            }
 
-            $scope.$watch('tick', function(tick) {
-                if (tick % $scope.ticksPerSubPeriod === 0) {
-                    for(var i = 0; i < rs.subjects.length; i++) {
-                        var data = [ ($scope.tick - $scope.ticksPerSubPeriod) / $scope.clock.getDurationInTicks(), $scope.actionForI(i) ];
-                        flows[i].push(data);
-
-                        var data = [ ($scope.tick) / $scope.clock.getDurationInTicks(), $scope.actionForI(i) ];
-                        flows[i].push(data);
-                    }
-                }
-
-                $scope.replotHist();
-            }, true);
-
-            //watch for end of period to change color of bg
-            $scope.$watch('bgColor', function() {
-                $scope.replotHist();
-            }, true);
-
-            $scope.replotHist = function() {
-
-                if (!loaded) return;
                 var xRange = 1;
                 var opts = {
                     xaxis: {
@@ -922,13 +905,51 @@ Redwood.directive('actionHistory', ['RedwoodSubject', function(rs) {
                         backgroundColor: $scope.bgColor
                     }
                 };
+
+                $scope.actionGraph = $.plot(elem, [], opts)
+                $scope.actionElemWidth = elem.width();
+
+                $scope.replotHist();
+            }
+
+            $scope.$watch('tick', function(tick) {
+                if (tick % $scope.ticksPerSubPeriod === 0) {
+                    for(var i = 0; i < rs.subjects.length; i++) {
+                        var data = [ ($scope.tick - $scope.ticksPerSubPeriod) / $scope.clock.getDurationInTicks(), $scope.actionForI(i) ];
+                        flows[i].push(data);
+
+                        var data = [ ($scope.tick) / $scope.clock.getDurationInTicks(), $scope.actionForI(i) ];
+                        flows[i].push(data);
+                    }
+                }
+
+                $scope.replotHist();
+            }, true);
+
+            //watch for end of period to change color of bg
+            $scope.$watch('bgColor', function() {
+                $scope.actionGraph.getOptions().grid.backgroundColor = $scope.bgColor;
+                $scope.actionGraph.setupGrid();
+                $scope.actionGraph.draw();
+            }, true);
+
+            $scope.replotHist = function() {
+
+                if (!loaded) return;
+
+                if ($scope.actionElemWidth != elem.width()) {
+                    $scope.actionElemWidth = elem.width();
+                    $scope.actionGraph.resize();
+                    $scope.actionGraph.setupGrid();
+                }
+                
                 var dataset = [];
 
                 for (var p = 0; p < subPeriods.length; p++) { //mark each sub-period with a vertical red line
                     dataset.push({
                         data: [
-                            [subPeriods[p], opts.yaxis.min],
-                            [subPeriods[p], opts.yaxis.max]
+                            [subPeriods[p], rs.config.minX],
+                            [subPeriods[p], rs.config.maxX]
                         ],
                         lines: {
                             lineWidth: 1
@@ -939,8 +960,8 @@ Redwood.directive('actionHistory', ['RedwoodSubject', function(rs) {
 
                 dataset.push({ //display the current time indicator as a vertical grey line
                     data: [
-                        [$scope.tick / $scope.clock.getDurationInTicks(), opts.yaxis.min],
-                        [$scope.tick / $scope.clock.getDurationInTicks(), opts.yaxis.max]
+                        [$scope.tick / $scope.clock.getDurationInTicks(), rs.config.minX],
+                        [$scope.tick / $scope.clock.getDurationInTicks(), rs.config.maxX]
                     ],
                     color: "grey"
                 });
@@ -973,7 +994,8 @@ Redwood.directive('actionHistory', ['RedwoodSubject', function(rs) {
                 }
 
 
-                $.plot(elem, dataset, opts);
+                $scope.actionGraph.setData(dataset);
+                $scope.actionGraph.draw();
             }
         }
     }
