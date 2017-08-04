@@ -149,7 +149,6 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         $scope.dev_log(rs);
         $scope.clock.start();
 
-
     });
 
 
@@ -539,9 +538,11 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
             });
 
             $scope.$watch('bgColor', function() {
-                $scope.mainGraph.getOptions().grid.backgroundColor = $scope.bgColor;
-                $scope.mainGraph.setupGrid();
-                $scope.mainGraph.draw();
+                if ($scope.mainGraph) {
+                    $scope.mainGraph.getOptions().grid.backgroundColor = $scope.bgColor;
+                    $scope.mainGraph.setupGrid();
+                    $scope.mainGraph.draw();
+                }
             }, true);
 
             $scope.$watch('tick', function(tick) {
@@ -784,9 +785,11 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
 
             //watch for end of period to change color of bg
             $scope.$watch('bgColor', function() {
-                $scope.payoffGraph.getOptions().grid.backgroundColor = $scope.bgColor;
-                $scope.payoffGraph.setupGrid();
-                $scope.payoffGraph.draw();
+                if ($scope.payoffGraph) {
+                    $scope.payoffGraph.getOptions().grid.backgroundColor = $scope.bgColor;
+                    $scope.payoffGraph.setupGrid();
+                    $scope.payoffGraph.draw();
+                }
             }, true);
 
             $scope.replotFlow = function() {
@@ -928,9 +931,11 @@ Redwood.directive('actionHistory', ['RedwoodSubject', function(rs) {
 
             //watch for end of period to change color of bg
             $scope.$watch('bgColor', function() {
-                $scope.actionGraph.getOptions().grid.backgroundColor = $scope.bgColor;
-                $scope.actionGraph.setupGrid();
-                $scope.actionGraph.draw();
+                if($scope.actionGraph) {
+                    $scope.actionGraph.getOptions().grid.backgroundColor = $scope.bgColor;
+                    $scope.actionGraph.setupGrid();
+                    $scope.actionGraph.draw();
+                }
             }, true);
 
             $scope.replotHist = function() {
