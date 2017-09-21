@@ -31,6 +31,7 @@ for filename in sys.argv[1:]:
     header = ["time", "period", "group"]
 
     for player in players:
+        header.append("target_p" + str(player))
         header.append("action_p" + str(player))
         header.append("subperiod_number_p" + str(player))
         header.append("rank_p" + str(player))
@@ -64,6 +65,7 @@ for filename in sys.argv[1:]:
                     for entry in state:
                         player = entry['subjectid']
 
+                        row['target_p' + player] = entry['target']
                         row['action_p' + player] = entry['action']
                         row['subperiod_number_p' + player] = entry['subperiodNumber']
                         row['rank_p' + player] = entry['rank']

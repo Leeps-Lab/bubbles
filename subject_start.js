@@ -2,7 +2,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     
     //Controls tick frequency for refreshing of flow chart
     var CLOCK_FREQUENCY = 5;
-    var LOG_FREQUENCY = 5;
+    var LOG_FREQUENCY = 1;
 
     //Controls how often the slider is allowed
     // to update the user's value. In ms.
@@ -293,7 +293,8 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
                 action: obj.action,
                 rank: obj.rank,
                 subperiodNumber: $scope.subPeriodNum,
-                payoff: obj.payoff
+                payoff: obj.payoff,
+                target: $scope.targets[index],
             };
             $scope.data.push(newObj);
         }
