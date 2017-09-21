@@ -668,7 +668,7 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                             lines: {
                                 lineWidth: 2
                             },
-                            color: "#eeeeee"
+                            color: "#888888"
                         });
                     }
 
