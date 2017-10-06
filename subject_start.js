@@ -2,7 +2,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     
     //Controls tick frequency for refreshing of flow chart
     var CLOCK_FREQUENCY = 5;
-    var LOG_FREQUENCY = 1;
+    var LOG_FREQUENCY = 5;
 
     //Controls how often the slider is allowed
     // to update the user's value. In ms.
@@ -28,11 +28,11 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         $scope.text = "x: 0";
         $scope.accPayoffText = "Accumulated Rewards: " + rs.accumulated_points.toFixed(2);
 
-        $scope.clock  = SynchronizedStopWatch.instance()
-            .frequency(CLOCK_FREQUENCY).onTick(processTick)
-            .duration(rs.config.period_length_s).onComplete(function() {
-                rs.trigger("move_on");
-        });
+        // $scope.clock  = SynchronizedStopWatch.instance()
+        //     .frequency(CLOCK_FREQUENCY).onTick(processTick)
+        //     .duration(rs.config.period_length_s).onComplete(function() {
+        //         rs.trigger("move_on");
+        // });
         $scope.logConfig(rs.user_id);
         $scope.colors = shuffleArray($scope.colors);
 
@@ -66,7 +66,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         var currSlideTime = new Date().getTime();
         $scope.stepSize = rs.config.maxX/rs.subjects.length;
         
-        $scope.initialActions = rs.config.initialActions.replace('[', '').replace(']', '').split(',');
+        $scope.initialActions = []; //rs.config.initialActions.replace('[', '').replace(']', '').split(',');
         
         for (var i = 0; i < $scope.initialActions.length; i++) {
             //console.log("Initial Action at: " + i + " is " + parseFloat($scope.initialActions[i]));
@@ -147,12 +147,30 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
         $scope.dev_log("calculated index" + $scope.indexFromId(rs.user_id));
         $scope.dev_log(rs);
-        $scope.clock.start();
+        //$scope.clock.start();
+
+        $scope.totalNumTicks = rs.config.period_length_s * CLOCK_FREQUENCY;
+        console.log($scope.totalNumTicks);
+
+        rs.synchronizationBarrier("start").then(function(){
+            var startTime = window.performance.now();
+            
+            function loop(tick) {
+                if (tick > $scope.totalNumTicks) {
+                    rs.send("move_on");
+                }
+                else {
+                    processTick(tick);
+                    rs.timeout(()=>loop(tick + 1), startTime + tick * (1000 / CLOCK_FREQUENCY) - window.performance.now());
+                }
+            };
+
+            loop(1);
+        });
 
     });
 
-
-    rs.on("move_on", function(msg) {
+    rs.recv("move_on", function(msg) {
         $scope.bgColor = "#ccc";
         $scope.showEnding = true;
         $("#slider").slider("disable");
@@ -176,7 +194,12 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     });
 
 
+    var lastTime = window.performance.now();
+
     var processTick = function(tick) {
+        console.log("tick period: ", window.performance.now() - lastTime);
+        lastTime = window.performance.now();
+
         // End of a sub period (in the "continuous" version, every tick is the end of a sub period)
         if (tick % $scope.ticksPerSubPeriod === 0) {
             if (rs.config.num_sub_periods != 0) {
@@ -185,8 +208,8 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
             }
             var reward = $scope.payoffFunction($scope.indexFromId(rs.user_id));
             $scope.rewards.push(reward);
-            rs.add_points(reward * $scope.ticksPerSubPeriod / $scope.clock.getDurationInTicks());
-            $scope.roundPayoff += (reward * $scope.ticksPerSubPeriod / $scope.clock.getDurationInTicks());
+            rs.add_points(reward * $scope.ticksPerSubPeriod / $scope.totalNumTicks);
+            $scope.roundPayoff += (reward * $scope.ticksPerSubPeriod / $scope.totalNumTicks);
             $scope.roundPayoffText = "Round Reward: " + $scope.roundPayoff.toFixed(2);
 
 
@@ -293,8 +316,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
                 action: obj.action,
                 rank: obj.rank,
                 subperiodNumber: $scope.subPeriodNum,
-                payoff: obj.payoff,
-                target: $scope.targets[index],
+                payoff: obj.payoff
             };
             $scope.data.push(newObj);
         }
@@ -669,7 +691,7 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                             lines: {
                                 lineWidth: 2
                             },
-                            color: "#888888"
+                            color: "#eeeeee"
                         });
                     }
 
@@ -720,8 +742,8 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                     var subPeriod = 0;
                     do {
                         subPeriod += $scope.ticksPerSubPeriod;
-                        subPeriods.push(subPeriod / $scope.clock.getDurationInTicks());
-                    } while (subPeriod < $scope.clock.getDurationInTicks());
+                        subPeriods.push(subPeriod / $scope.totalNumTicks);
+                    } while (subPeriod < $scope.totalNumTicks);
                 }
 
                 for(var i = 0; i < rs.subjects.length; i++) {
@@ -774,10 +796,10 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
             $scope.$watch('tick', function(tick) {
                 if (tick % $scope.ticksPerSubPeriod === 0) {
                     for(var i = 0; i < rs.subjects.length; i++) {
-                        var data = [ ($scope.tick - $scope.ticksPerSubPeriod) / $scope.clock.getDurationInTicks(), $scope.discretePayoffFunction(i) ];
+                        var data = [ ($scope.tick - $scope.ticksPerSubPeriod) / $scope.totalNumTicks, $scope.discretePayoffFunction(i) ];
                         flows[i].push(data);
 
-                        var data = [ ($scope.tick) / $scope.clock.getDurationInTicks(), $scope.discretePayoffFunction(i) ];
+                        var data = [ ($scope.tick) / $scope.totalNumTicks, $scope.discretePayoffFunction(i) ];
                         flows[i].push(data);
                     }
                 }
@@ -818,8 +840,8 @@ Redwood.directive('flowflot', ['RedwoodSubject', function(rs) {
                 }
                 dataset.push({ //display the current time indicator as a vertical grey line
                     data: [
-                        [$scope.tick / $scope.clock.getDurationInTicks(), 0],
-                        [$scope.tick / $scope.clock.getDurationInTicks(), $scope.yMax]
+                        [$scope.tick / $scope.totalNumTicks, 0],
+                        [$scope.tick / $scope.totalNumTicks, $scope.yMax]
                     ],
                     color: "grey"
                 });
@@ -878,8 +900,8 @@ Redwood.directive('actionHistory', ['RedwoodSubject', function(rs) {
                     var subPeriod = 0;
                     do {
                         subPeriod += $scope.ticksPerSubPeriod;
-                        subPeriods.push(subPeriod / $scope.clock.getDurationInTicks());
-                    } while (subPeriod < $scope.clock.getDurationInTicks());
+                        subPeriods.push(subPeriod / $scope.totalNumTicks);
+                    } while (subPeriod < $scope.totalNumTicks);
                 }
 
                 for(var i = 0; i < rs.subjects.length; i++) {
@@ -919,10 +941,10 @@ Redwood.directive('actionHistory', ['RedwoodSubject', function(rs) {
             $scope.$watch('tick', function(tick) {
                 if (tick % $scope.ticksPerSubPeriod === 0) {
                     for(var i = 0; i < rs.subjects.length; i++) {
-                        var data = [ ($scope.tick - $scope.ticksPerSubPeriod) / $scope.clock.getDurationInTicks(), $scope.actionForI(i) ];
+                        var data = [ ($scope.tick - $scope.ticksPerSubPeriod) / $scope.totalNumTicks, $scope.actionForI(i) ];
                         flows[i].push(data);
 
-                        var data = [ ($scope.tick) / $scope.clock.getDurationInTicks(), $scope.actionForI(i) ];
+                        var data = [ ($scope.tick) / $scope.totalNumTicks, $scope.actionForI(i) ];
                         flows[i].push(data);
                     }
                 }
@@ -966,8 +988,8 @@ Redwood.directive('actionHistory', ['RedwoodSubject', function(rs) {
 
                 dataset.push({ //display the current time indicator as a vertical grey line
                     data: [
-                        [$scope.tick / $scope.clock.getDurationInTicks(), rs.config.minX],
-                        [$scope.tick / $scope.clock.getDurationInTicks(), rs.config.maxX]
+                        [$scope.tick / $scope.totalNumTicks, rs.config.minX],
+                        [$scope.tick / $scope.totalNumTicks, rs.config.maxX]
                     ],
                     color: "grey"
                 });
