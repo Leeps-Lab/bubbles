@@ -72,3 +72,4 @@ for filename in sys.argv[1:]:
                         row['payoff_p' + player] = entry['payoff']
 
                     writer.writerow(row)
+                    

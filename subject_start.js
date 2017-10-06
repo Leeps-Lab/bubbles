@@ -2,7 +2,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     
     //Controls tick frequency for refreshing of flow chart
     var CLOCK_FREQUENCY = 5;
-    var LOG_FREQUENCY = 5;
+    var LOG_FREQUENCY = 1;
 
     //Controls how often the slider is allowed
     // to update the user's value. In ms.
@@ -66,7 +66,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         var currSlideTime = new Date().getTime();
         $scope.stepSize = rs.config.maxX/rs.subjects.length;
         
-        $scope.initialActions = []; //rs.config.initialActions.replace('[', '').replace(']', '').split(',');
+        $scope.initialActions = rs.config.initialActions.replace('[', '').replace(']', '').split(',');
         
         for (var i = 0; i < $scope.initialActions.length; i++) {
             //console.log("Initial Action at: " + i + " is " + parseFloat($scope.initialActions[i]));
@@ -150,7 +150,6 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         //$scope.clock.start();
 
         $scope.totalNumTicks = rs.config.period_length_s * CLOCK_FREQUENCY;
-        console.log($scope.totalNumTicks);
 
         rs.synchronizationBarrier("start").then(function(){
             var startTime = window.performance.now();
@@ -161,7 +160,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
                 }
                 else {
                     processTick(tick);
-                    rs.timeout(()=>loop(tick + 1), startTime + tick * (1000 / CLOCK_FREQUENCY) - window.performance.now());
+                    $scope.timeoutID = window.setTimeout(loop, startTime + tick * (1000 / CLOCK_FREQUENCY) - window.performance.now(), tick + 1);
                 }
             };
 
@@ -171,6 +170,14 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     });
 
     rs.recv("move_on", function(msg) {
+        window.clearTimeout($scope.timeoutID);
+        $scope.bgColor = "#ccc";
+        $scope.showEnding = true;
+        $("#slider").slider("disable");
+        rs.next_period(10);
+    });
+
+    rs.on("move_on", function(msg) {
         $scope.bgColor = "#ccc";
         $scope.showEnding = true;
         $("#slider").slider("disable");
@@ -193,12 +200,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         $scope.myAction = msg.action;
     });
 
-
-    var lastTime = window.performance.now();
-
     var processTick = function(tick) {
-        console.log("tick period: ", window.performance.now() - lastTime);
-        lastTime = window.performance.now();
 
         // End of a sub period (in the "continuous" version, every tick is the end of a sub period)
         if (tick % $scope.ticksPerSubPeriod === 0) {
@@ -316,7 +318,8 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
                 action: obj.action,
                 rank: obj.rank,
                 subperiodNumber: $scope.subPeriodNum,
-                payoff: obj.payoff
+                payoff: obj.payoff,
+                target: $scope.targets[index],
             };
             $scope.data.push(newObj);
         }
@@ -691,7 +694,7 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                             lines: {
                                 lineWidth: 2
                             },
-                            color: "#eeeeee"
+                            color: "#888888"
                         });
                     }
 
