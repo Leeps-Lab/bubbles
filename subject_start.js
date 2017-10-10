@@ -174,14 +174,14 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         $scope.bgColor = "#ccc";
         $scope.showEnding = true;
         $("#slider").slider("disable");
-        rs.next_period(10);
+        rs.next_period(6);
     });
 
     rs.on("move_on", function(msg) {
         $scope.bgColor = "#ccc";
         $scope.showEnding = true;
         $("#slider").slider("disable");
-        rs.next_period(10);
+        rs.next_period(6);
     });
 
     rs.recv("updateAction", function(uid, msg) {
