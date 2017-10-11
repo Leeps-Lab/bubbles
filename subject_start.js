@@ -312,7 +312,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         $scope.data = [];
         for (var i = 0; i < $scope.state.length; i++) {
             var obj = $scope.state[i];
-            var index = $scope.indexFromId(rs.subjects[i].user_id);
+            var index = $scope.indexFromId(rs.subjects[obj.id].user_id);
             var newObj = {
                 subjectid: rs.subjects[obj.id].user_id,
                 action: obj.action,
