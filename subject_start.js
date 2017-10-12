@@ -1,4 +1,4 @@
-Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'SynchronizedStopWatch', function($rootScope, $scope, rs, SynchronizedStopWatch) {
+Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'SynchronizedStopWatch', '$timeout', function($rootScope, $scope, rs, SynchronizedStopWatch, $timeout) {
     
     //Controls tick frequency for refreshing of flow chart
     var CLOCK_FREQUENCY = 5;
@@ -160,7 +160,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
                 }
                 else {
                     processTick(tick);
-                    $scope.timeoutID = window.setTimeout(loop, startTime + tick * (1000 / CLOCK_FREQUENCY) - window.performance.now(), tick + 1);
+                    $scope.timeoutID = $timeout(loop.bind(null, tick + 1), startTime + tick * (1000 / CLOCK_FREQUENCY) - window.performance.now());
                 }
             };
 
@@ -170,7 +170,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     });
 
     rs.recv("move_on", function(msg) {
-        window.clearTimeout($scope.timeoutID);
+        $timeout.cancel($scope.timeoutID);
         $scope.bgColor = "#ccc";
         $scope.showEnding = true;
         $("#slider").slider("disable");
@@ -201,7 +201,6 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     });
 
     var processTick = function(tick) {
-
         // End of a sub period (in the "continuous" version, every tick is the end of a sub period)
         if (tick % $scope.ticksPerSubPeriod === 0) {
             if (rs.config.num_sub_periods != 0) {
@@ -288,7 +287,6 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
         //causes angular $watch trigger to redraw plots
         $scope.tick = tick;
-        
     }
 
     $scope.logCount = 0;
