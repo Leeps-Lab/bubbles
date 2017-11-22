@@ -160,7 +160,10 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
                 }
                 else {
                     processTick(tick);
-                    $scope.timeoutID = $timeout(loop.bind(null, tick + 1), startTime + tick * (1000 / CLOCK_FREQUENCY) - window.performance.now());
+                    $scope.timeoutID = $timeout(
+                        loop.bind(null, tick + 1),
+                        startTime + tick * (1000 / CLOCK_FREQUENCY) - window.performance.now()
+                    );
                 }
             };
 
@@ -169,8 +172,15 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
     });
 
+    // make sure next_period isn't run twice
+    $scope.ranMoveOn = false;
+
     rs.recv("move_on", function(msg) {
         $timeout.cancel($scope.timeoutID);
+
+        if ($scope.ranMoveOn) return;
+        $scope.ranMoveOn = true;
+
         $scope.bgColor = "#ccc";
         $scope.showEnding = true;
         $("#slider").slider("disable");
@@ -178,6 +188,9 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
     });
 
     rs.on("move_on", function(msg) {
+        if ($scope.ranMoveOn) return;
+        $scope.ranMoveOn = true;
+        
         $scope.bgColor = "#ccc";
         $scope.showEnding = true;
         $("#slider").slider("disable");
