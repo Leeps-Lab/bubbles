@@ -66,7 +66,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
         var currSlideTime = new Date().getTime();
         $scope.stepSize = rs.config.maxX/rs.subjects.length;
         
-        $scope.initialActions = rs.config.initialActions.replace('[', '').replace(']', '').split(',');
+        $scope.initialActions = rs.config.initialActions;
         
         for (var i = 0; i < $scope.initialActions.length; i++) {
             //console.log("Initial Action at: " + i + " is " + parseFloat($scope.initialActions[i]));
