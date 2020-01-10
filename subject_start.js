@@ -618,7 +618,7 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                             },
                             color: $scope.myColor
                         });
-                    } else {
+                    } else if (rs.config.showOthersBubbles) {
                         actions.push({
                             data: pt,
                             points: { 
