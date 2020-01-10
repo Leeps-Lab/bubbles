@@ -631,7 +631,7 @@ Redwood.directive('actionFlot', ['RedwoodSubject', function(rs) {
                         //console.log("My payoff: " + $scope.discretePayoffFunction(i));
                         //console.log($scope.discreteActions);
                         pt.push([$scope.discreteActions[i], $scope.discretePayoffFunction(i) ]);
-                    } else {
+                    } else if (rs.config.showOthersBubbles) {
                         if ($scope.hidePayoffs) {
                             pt.push([$scope.discreteActions[i], 0 ])
                         } else {
